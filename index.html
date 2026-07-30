@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>高野さん、席にいて! 〜銀座・定時までの攻防〜</title>
+<meta name="description" content="おしゃべりで机にじっとしてられない高野さんを、定時までデスクに縛りつけるゲーム。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="高野さん、席にいて!">
+<meta property="og:description" content="おしゃべりで机にじっとしてられない高野さんを、定時までデスクに縛りつけろ。">
+<meta property="og:image" content="https://hajime71.github.io/Desk-Defence/ogp-desk-defense.png">
+<meta property="og:url" content="https://hajime71.github.io/Desk-Defence/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="高野さん、席にいて!">
+<meta name="twitter:description" content="おしゃべりで机にじっとしてられない高野さんを、定時までデスクに縛りつけろ。">
+<meta name="twitter:image" content="https://hajime71.github.io/Desk-Defence/ogp-desk-defense.png">
 <style>
   :root{
     --paper:#fff6ea;
@@ -415,7 +425,7 @@ function newGame(key){
   var d = DIFFS[key] || DIFFS.normal;
   return {
     diff:d, day:1, days:d.days,
-    time:d.time, work:0, sowa:16, voice:100,
+    time:d.time, dayTimeTotal:d.time, work:0, sowa:16, voice:100,
     combo:0, aniki:0,
     mode:'seated',   /* seated | walking | away | fukuoka | talking | callback | paused */
     x:SEAT_X, face:1,
@@ -1075,7 +1085,7 @@ function showDay(){
     '<div><span>' + a.talks + '</span> 回 捕まった</div>' +
     '<div><span>' + a.aniki + '</span> 回 兄貴モード</div>' +
     '<div><span>' + a.flyerHits + '</span> 回 チラシ着弾</div>' +
-    '<div><span>' + a.fukuoka + '</span> 回 福岡へ飛ばれた</div>';
+    '<div><span>' + a.fukuoka + '</span> 回 福岡へ飛んだ</div>';
   dayScreen.classList.remove('hide');
 }
 
@@ -1084,6 +1094,7 @@ document.getElementById('btnNextDay').addEventListener('click', function(){
   var d = G.diff;
   G.day++;
   G.time = Math.max(18, d.time - (G.day - 1) * d.timeStep);
+  G.dayTimeTotal = G.time;
   G.work = 0; G.sowa = 18; G.voice = 100; G.combo = 0; G.aniki = 0;
   G.guests = []; G.items = []; G.fx = []; G.planes = []; G.longTalkGuest = null;
   G.mode = 'seated'; G.x = SEAT_X; G.longTalk = 0;
@@ -1128,8 +1139,8 @@ function showEnd(cleared, reason){
   document.getElementById('endBody').innerHTML = body;
   document.getElementById('endAch').innerHTML =
     achLine(a.flyerHits === 0, 'チラシ完封 — 一度も机に届かせなかった') +
-    achLine(a.fukuoka === 0, '出国阻止 — 福岡に飛ばれなかった') +
-    achLine(a.bossSeen === 0, '体裁は保った — 社長らに空席を見られなかった') +
+    achLine(a.fukuoka === 0, '出国阻止 — 福岡に飛ばなかった') +
+    achLine(a.bossSeen === 0, '体裁は保った — マネージャー・取締役・社長に空席を見られなかった') +
     achLine(a.quizTotal > 0 && a.quizWrong === 0, '記憶力 — 「何回目?」を全問正解') +
     achLine(a.minoruWin >= 2, '実さん対策済み — 実さんを2回以上さばいた') +
     achLine(a.aniki >= 3, '兄貴の申し子 — 兄貴モード3回以上');
@@ -1137,27 +1148,88 @@ function showEnd(cleared, reason){
 }
 
 /* ================= drawing ================= */
+/* ================= time-of-day (朝→夜) ================= */
+function hex2rgb(h){
+  var n = parseInt(h.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function lerpHex(a, b, f){
+  var ca = hex2rgb(a), cb = hex2rgb(b);
+  var r = Math.round(ca[0] + (cb[0] - ca[0]) * f);
+  var g = Math.round(ca[1] + (cb[1] - ca[1]) * f);
+  var bl = Math.round(ca[2] + (cb[2] - ca[2]) * f);
+  return 'rgb(' + r + ',' + g + ',' + bl + ')';
+}
+/* 朝(0) → 昼(0.33) → 夕(0.66) → 夜(1) の4段階を空グラデーションの3色で定義 */
+var SKY_STOPS = [
+  {t: 0.00, top: '#7ba7d9', mid: '#bcd4e0', bot: '#ffd9a0'}, /* 朝 */
+  {t: 0.33, top: '#2f6fb0', mid: '#5a9bc9', bot: '#cfe6f0'}, /* 昼 */
+  {t: 0.66, top: '#1b2a52', mid: '#6a4a7a', bot: '#e08a5f'}, /* 夕方(元の色) */
+  {t: 1.00, top: '#0a1024', mid: '#141a3a', bot: '#241f3a'}  /* 夜 */
+];
+function skyPhase(t){
+  t = Math.max(0, Math.min(1, t));
+  var a = SKY_STOPS[0], b = SKY_STOPS[SKY_STOPS.length - 1];
+  for (var i = 0; i < SKY_STOPS.length - 1; i++){
+    if (t >= SKY_STOPS[i].t && t <= SKY_STOPS[i + 1].t){ a = SKY_STOPS[i]; b = SKY_STOPS[i + 1]; break; }
+  }
+  var span = (b.t - a.t) || 1, f = (t - a.t) / span;
+  return {
+    top: lerpHex(a.top, b.top, f), mid: lerpHex(a.mid, b.mid, f), bot: lerpHex(a.bot, b.bot, f),
+    sunAlpha: Math.max(0, Math.min(1, 1 - t / 0.7)),
+    nightAlpha: Math.max(0, Math.min(1, (t - 0.55) / 0.45)),
+    winGlow: 0.12 + 0.73 * Math.max(0, Math.min(1, (t - 0.3) / 0.6))
+  };
+}
+
 function drawBG(){
   var wall = ctx.createLinearGradient(0, 0, 0, VH);
   wall.addColorStop(0, '#3a2d42'); wall.addColorStop(0.62, '#2b2233'); wall.addColorStop(1, '#1a1520');
   ctx.fillStyle = wall; ctx.fillRect(0, 0, VW, VH);
 
   var wx = 44, wy = 34, ww = VW - 88, wh = 132;
+  var timeProg = G.dayTimeTotal > 0 ? (1 - G.time / G.dayTimeTotal) : 0;
+  var workProg = G.work / 100;
+  var tOfDay = Math.max(timeProg, workProg);
+  var ph = skyPhase(tOfDay);
+
   var sky = ctx.createLinearGradient(0, wy, 0, wy + wh);
-  sky.addColorStop(0, '#1b2a52'); sky.addColorStop(0.45, '#6a4a7a'); sky.addColorStop(1, '#e08a5f');
+  sky.addColorStop(0, ph.top); sky.addColorStop(0.45, ph.mid); sky.addColorStop(1, ph.bot);
   ctx.fillStyle = sky; ctx.fillRect(wx, wy, ww, wh);
 
-  ctx.fillStyle = 'rgba(255,210,122,0.9)';
-  ctx.beginPath(); ctx.arc(wx + ww * 0.2, wy + wh * 0.62, 14, 0, 6.284); ctx.fill();
+  /* 星(夜だけ) */
+  if (ph.nightAlpha > 0){
+    ctx.fillStyle = 'rgba(255,246,234,' + (ph.nightAlpha * 0.8) + ')';
+    var starSeedBase = 11;
+    for (var st = 0; st < 18; st++){
+      var sxp = wx + ((st * 53 + 17) % (ww - 8)) + 4;
+      var syp = wy + ((st * 31 + 9) % (wh * 0.6)) + 4;
+      var tw = 0.5 + 0.5 * Math.sin(G.t * 2 + st * 1.7);
+      ctx.globalAlpha = ph.nightAlpha * (0.4 + 0.6 * tw);
+      ctx.fillRect(sxp, syp, 1.6, 1.6);
+    }
+    ctx.globalAlpha = 1;
+  }
 
-  /* Ginza skyline: dense buildings with lit windows */
+  /* 太陽(朝〜夕方) */
+  if (ph.sunAlpha > 0){
+    ctx.fillStyle = 'rgba(255,210,122,' + (0.9 * ph.sunAlpha) + ')';
+    ctx.beginPath(); ctx.arc(wx + ww * 0.2, wy + wh * 0.62, 14, 0, 6.284); ctx.fill();
+  }
+  /* 月(夜) */
+  if (ph.nightAlpha > 0){
+    ctx.fillStyle = 'rgba(230,230,245,' + (0.85 * ph.nightAlpha) + ')';
+    ctx.beginPath(); ctx.arc(wx + ww * 0.78, wy + wh * 0.24, 11, 0, 6.284); ctx.fill();
+  }
+
+  /* Ginza skyline: dense buildings with lit windows(暗くなるほど点灯が目立つ) */
   ctx.fillStyle = '#241d33';
   var bw = (ww - 12) / 11;
   for (var b = 0; b < 11; b++){
     var bx = wx + 6 + b * bw;
     var bh = 34 + ((b * 43) % 52);
     ctx.fillRect(bx, wy + wh - bh, bw - 3, bh);
-    ctx.fillStyle = 'rgba(255,201,91,0.5)';
+    ctx.fillStyle = 'rgba(255,201,91,' + ph.winGlow + ')';
     for (var r2 = 0; r2 < ((bh / 12) | 0); r2++){
       for (var c2 = 0; c2 < 2; c2++){
         if ((b + r2 + c2) % 3) ctx.fillRect(bx + 3 + c2 * 9, wy + wh - bh + 5 + r2 * 11, 4, 5);
