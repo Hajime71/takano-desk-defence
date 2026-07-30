@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>高野さん、席にいて! 〜銀座・定時までの攻防〜</title>
+<style>
+  :root{
+    --paper:#fff6ea;
+    --accent:#ff6b5b;
+    --gold:#ffc95b;
+    --teal:#7fd6e0;
+    --ink:#1a1420;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background:#0b0813;
+    font-family:'Hiragino Sans','Yu Gothic',sans-serif;
+    overscroll-behavior:none; touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #wrap{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:100vh; padding:12px; gap:8px;
+  }
+  #title{color:var(--paper); font-size:13px; letter-spacing:0.08em; opacity:0.8; text-align:center;}
+  #title b{color:var(--gold); font-weight:800;}
+  #stage{
+    position:relative; width:100%; max-width:540px; aspect-ratio:5/4;
+    border-radius:14px; overflow:hidden;
+    box-shadow:0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.07);
+    background:#221a2c;
+  }
+  canvas{display:block; width:100%; height:100%;}
+
+  #hud{
+    position:absolute; top:9px; left:11px; right:11px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    color:var(--paper); font-size:12px; font-weight:800; letter-spacing:0.03em;
+    text-shadow:0 1px 3px rgba(0,0,0,0.7); pointer-events:none;
+  }
+  #hud .r{text-align:right; line-height:1.5;}
+  .bar{
+    position:absolute; left:44px; right:11px; height:6px; border-radius:4px;
+    background:rgba(0,0,0,0.42); overflow:hidden; pointer-events:none;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,0.12);
+  }
+  .bar i{display:block; height:100%; width:0%; transition:width 0.12s linear;}
+  #barWork{top:44px;} #fillWork{background:linear-gradient(90deg,var(--teal),var(--gold));}
+  #barSowa{top:55px;} #fillSowa{background:linear-gradient(90deg,#ffb15b,var(--accent));}
+  #barVoice{top:66px;} #fillVoice{background:linear-gradient(90deg,#8f8fd6,#d6c6ff);}
+  .blab{
+    position:absolute; left:11px; width:32px; text-align:right;
+    color:var(--paper); opacity:0.6; font-size:8.5px; font-weight:800;
+    letter-spacing:0.02em; pointer-events:none; text-shadow:0 1px 2px #000;
+  }
+  #lWork{top:43px;} #lSowa{top:54px;} #lVoice{top:65px;}
+
+  .overlay{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:11px; padding:22px;
+    background:rgba(11,8,19,0.88); backdrop-filter:blur(3px);
+    color:var(--paper); text-align:center; overflow-y:auto;
+  }
+  .overlay h2{margin:0; font-size:19px; letter-spacing:0.04em;}
+  .overlay h3{margin:0; font-size:13px; letter-spacing:0.06em; color:var(--gold);}
+  .overlay p{margin:0; font-size:12px; line-height:1.7; opacity:0.92; max-width:410px;}
+  .overlay p b{color:var(--gold);}
+  .btn{
+    appearance:none; border:0; cursor:pointer; font-family:inherit;
+    padding:11px 24px; border-radius:999px;
+    background:var(--accent); color:#fff; font-weight:800; font-size:13.5px;
+    letter-spacing:0.06em; box-shadow:0 6px 18px rgba(255,107,91,0.4);
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn.ghost{background:rgba(255,255,255,0.13); box-shadow:none;}
+  .btn.sm{padding:9px 18px; font-size:12px;}
+  .row{display:flex; gap:7px; flex-wrap:wrap; justify-content:center;}
+  .hide{display:none !important;}
+  .ach{
+    text-align:left; font-size:11.5px; line-height:1.85; max-width:330px;
+    background:rgba(255,255,255,0.05); border-radius:9px; padding:9px 12px;
+  }
+  .ach div span{color:var(--gold); font-weight:800;}
+  .ach div.no{opacity:0.4;}
+  .ach div.no span{color:#9b8f9f;}
+
+  #quiz{
+    position:absolute; left:0; right:0; bottom:0; padding:12px 12px 14px;
+    background:linear-gradient(180deg,rgba(11,8,19,0) 0%,rgba(11,8,19,0.9) 45%);
+    display:flex; flex-direction:column; gap:8px;
+  }
+  #quizQ{color:var(--paper); font-size:12px; font-weight:700; text-align:center; text-shadow:0 1px 4px #000;}
+  #quizQ em{color:var(--gold); font-style:normal;}
+  #quizRow{display:flex; gap:8px;}
+  #quizRow button{
+    flex:1; appearance:none; border:0; cursor:pointer; font-family:inherit;
+    padding:13px 6px; border-radius:11px; font-size:13px; font-weight:800;
+    color:var(--ink); background:var(--paper); box-shadow:0 5px 14px rgba(0,0,0,0.45);
+  }
+  #quizRow button:active{transform:translateY(1px);}
+  #quizTimer{height:4px; border-radius:3px; background:rgba(255,255,255,0.2); overflow:hidden;}
+  #quizTimer i{display:block; height:100%; background:var(--gold); width:100%;}
+
+  #callback{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px; padding:22px;
+    background:rgba(11,8,19,0.6);
+  }
+  #cbTitle{color:var(--paper); font-size:14px; font-weight:900; text-shadow:0 2px 8px #000; text-align:center; line-height:1.6;}
+  #cbTitle small{display:block; font-size:11px; opacity:0.8; font-weight:700; margin-top:3px;}
+  #cbBtn{
+    appearance:none; border:0; cursor:pointer; font-family:inherit;
+    width:150px; height:150px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #ffd98a, var(--accent));
+    color:#3a1a14; font-size:15px; font-weight:900; letter-spacing:0.04em;
+    box-shadow:0 10px 30px rgba(255,107,91,0.5);
+  }
+  #cbBtn:active{transform:scale(0.95);}
+  #cbBar{width:190px; height:7px; border-radius:4px; background:rgba(255,255,255,0.2); overflow:hidden;}
+  #cbBar i{display:block; height:100%; width:0%; background:var(--gold);}
+  #cbCount{color:var(--paper); font-size:11.5px; font-weight:800; opacity:0.85;}
+
+  #status{
+    position:absolute; left:11px; right:11px; top:80px;
+    padding:6px 10px; border-radius:9px;
+    background:rgba(255,107,91,0.92); color:#fff;
+    font-size:11px; font-weight:800; letter-spacing:0.02em;
+    text-align:center; line-height:1.5; pointer-events:none;
+    box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  }
+  #status.calm{background:rgba(127,214,224,0.9); color:#10323a;}
+  #status small{display:block; font-size:9.5px; font-weight:700; opacity:0.92; margin-top:1px;}
+  #toast{
+    position:absolute; left:50%; top:48%; transform:translate(-50%,-50%);
+    color:var(--paper); font-size:18px; font-weight:900; letter-spacing:0.05em;
+    text-shadow:0 2px 10px #000; pointer-events:none; opacity:0;
+    transition:opacity 0.2s; text-align:center; line-height:1.45; width:88%;
+  }
+  #foot{color:var(--paper); opacity:0.42; font-size:10px; text-align:center; line-height:1.7; max-width:540px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="title"><b>高野さん、席にいて!</b>　銀座・定時までの攻防</div>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="hud">
+      <div id="hudL">DAY 1</div>
+      <div class="r" id="hudR">定時まで 70s</div>
+    </div>
+    <div class="blab" id="lWork">仕事</div>
+    <div class="blab" id="lSowa">ソワ</div>
+    <div class="blab" id="lVoice">声かけ</div>
+    <div class="bar" id="barWork"><i id="fillWork"></i></div>
+    <div class="bar" id="barSowa"><i id="fillSowa"></i></div>
+    <div class="bar" id="barVoice"><i id="fillVoice"></i></div>
+
+    <div id="quiz" class="hide">
+      <div id="quizQ"></div>
+      <div id="quizTimer"><i id="quizTimerFill"></i></div>
+      <div id="quizRow">
+        <button id="qOld">その話、聞きました</button>
+        <button id="qNew">初耳です!</button>
+      </div>
+    </div>
+
+    <div id="callback" class="hide">
+      <div id="cbTitle">高野さんがエレベーターに乗った!<small>連打して電話で呼び止めろ</small></div>
+      <button id="cbBtn">呼び止める</button>
+      <div id="cbBar"><i id="cbBarFill"></i></div>
+      <div id="cbCount"></div>
+    </div>
+
+    <div id="status" class="hide"></div>
+    <div id="toast"></div>
+
+    <div class="overlay" id="startScreen">
+      <h2>高野さん、席にいて!</h2>
+      <p>おしゃべりで机にじっとしてられない高野さんを、<b>定時までデスクに縛りつける</b>ゲーム。事務所は銀座。油断すると羽田から福岡へ飛ぶ。</p>
+      <p style="text-align:left">
+        ・仕事は<b>邪魔されず座り続けた時間</b>で加速する（集中 x0.45 → x2.4）。中断されると<b>ゼロに戻る</b><br>
+        ・<b>高野さんをタップ</b> → 声かけ。ただし<b>連打は逆効果</b>、落ち着いてる時に使っても効かない<br>
+        ・<b>社員をタップ</b> → 別件に流す。ただし<b>上司・取締役・社長は流せない</b>（触ると悪化）<br>
+        ・<b>実さんは止まらない</b>。強制トークだが正解すれば大きい<br>
+        ・飛んでくる物：<b>チラシは払う／図面は触るな（仕事+6）／缶コーヒーはソワソワが高い時だけ有効</b><br>
+        ・<b>空振りタップは声かけゲージを削る</b>。手当たり次第は損<br>
+        ・3連続でさばくと<b>兄貴モード</b>
+      </p>
+      <h3>負ける条件</h3>
+      <p style="text-align:left">
+        ・<b>定時までに仕事が100%にならない</b> → 残業確定<br>
+        ・<b>高野さんが福岡に着いてしまう</b> → その時点で終了。エレベーターと搭乗ゲートで2回だけ止められる
+      </p>
+      <h3>モードを選ぶ</h3>
+      <div class="row">
+        <button class="btn sm" id="btnNormal">ノーマル 3日</button>
+        <button class="btn sm ghost" id="btnHard">ハード 4日</button>
+        <button class="btn sm ghost" id="btnOni">修羅場 5日</button>
+        <button class="btn sm ghost" id="btnJigoku">定時なんて無い 7日</button>
+        <button class="btn sm ghost" id="btnEndless">エンドレス</button>
+      </div>
+      <p style="font-size:10px; opacity:0.5;">1日は仕事100%で終わり。ソワソワが速いほど手が止まる。エンドレスは何日耐えられるかの記録に挑戦。</p>
+    </div>
+
+    <div class="overlay hide" id="dayScreen">
+      <h3 id="dayTag"></h3>
+      <h2 id="dayTitle"></h2>
+      <p id="dayFlavor"></p>
+      <div class="ach" id="dayStats"></div>
+      <button class="btn" id="btnNextDay">次の日へ</button>
+    </div>
+
+    <div class="overlay hide" id="endScreen">
+      <h2 id="endTitle"></h2>
+      <p id="endBody"></p>
+      <div class="ach" id="endAch"></div>
+      <div class="row">
+        <button class="btn" id="btnAgain">もう一回</button>
+        <button class="btn ghost" id="btnBackToStart">モード選択</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="foot">缶コーヒーはタップで差し入れ（ソワソワ回復）。ホームセンターの特売チラシは机に届く前に払え。</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================= canvas ================= */
+var VW = 540, VH = 432;
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+function resize(){
+  var r = cv.getBoundingClientRect();
+  var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.round(r.width * dpr);
+  cv.height = Math.round(r.height * dpr);
+  ctx.setTransform(cv.width / VW, 0, 0, cv.height / VH, 0, 0);
+  ctx.textAlign = 'center';
+}
+window.addEventListener('resize', resize);
+
+var FLOOR = 306;
+var DESK_L = 208, DESK_R = 344, DESK_TOP = 250;
+var SEAT_X = 276;
+
+/* ================= data ================= */
+/* kind: normal = 流せる / boss = 流せない・立ってると減点 / minoru = 止まらない強制トーク */
+var PEOPLE = [
+  {n:'営業',        c:'#4a6f8c', h:'#241d16', kind:'normal', prop:'bag',    w:14},
+  {n:'プログラマー', c:'#57608c', h:'#1e1a1e', kind:'normal', prop:'laptop', w:13},
+  {n:'エンジニア',   c:'#5f9a72', h:'#2b2320', kind:'normal', prop:'helmet', w:14},
+  {n:'総務',        c:'#b8749a', h:'#3a2418', kind:'normal', prop:'paper',  w:13},
+  {n:'経理',        c:'#8a7ab8', h:'#2b2030', kind:'normal', prop:'paper',  w:13},
+  {n:'新人',        c:'#6fa8a0', h:'#1e1a1e', kind:'normal', prop:'none',   w:15, small:true},
+  {n:'サブコンさん', c:'#c08a4a', h:'#2e2320', kind:'normal', prop:'helmet', w:12},
+  {n:'上司',        c:'#3f4a5c', h:'#242028', kind:'boss',   prop:'bag',    w:7},
+  {n:'取締役',      c:'#2f3646', h:'#3d3630', kind:'boss',   prop:'none',   w:4},
+  {n:'社長',        c:'#1f2430', h:'#d8d4cc', kind:'boss',   prop:'none',   w:3},
+  {n:'実さん',      c:'#6f5bd6', h:'#2b2030', kind:'minoru', prop:'none',   w:6}
+];
+var WSUM = 0;
+for (var wi = 0; wi < PEOPLE.length; wi++) WSUM += PEOPLE[wi].w;
+
+var TOPICS = [
+  '福岡タワーがさー',
+  'ヨルノヨがさー',
+  '品川がさー',
+  '芝浦がさー',
+  '保守がさー',
+  'あのシーケンスがさー',
+  '灯具のスペックがさー',
+  'フェードカーブがさー',
+  '実さんがさー',
+  'ホームセンターがさー',
+  '銀座の裏の店がさー',
+  'ドライバー変えたらさー',
+  '天神でブレーカー飛んだ時がさー',
+  '博多のモツ鍋がさー'
+];
+/* 話し始めの口癖。ネタ本体とは別に毎回ランダムで付く */
+var PREFIX = ['ちなみに', 'ちなみにさ', 'あとさー', 'そうそう', 'あ、そういえば', 'ちなみにこれ'];
+
+var STANDCRY = ['ちょっと一服', 'ちなみにさ、あの話', 'コンビニ行ってくる', '品川の件、電話してくる', 'ちょっとだけ'];
+var CALM = ['あ、ごめんごめん、やるやる', 'ちなみにさ…あ、いや、なんでもない', 'これ終わったら話すわ', 'わかったって'];
+var CUTLINE = ['あ、話したっけ。ごめんごめん', 'ちなみにその話、したか。ごめん'];
+var SATLINE = ['そうそう、それでさー! 続きは飲みで', 'でしょ? ちなみに続きがあってさー'];
+var LONGLINE_OLD = ['いや、ちなみにその後がさー', 'いやいや、そこからがさー'];
+var LONGLINE_NEW = ['えっ、まだ言ってないっけ? でさー', 'あれ、してない? じゃあさー'];
+
+var BOSS_FLAVOR = [
+  '「高野くん、今日は珍しく座ってたな」',
+  '「高野くんの席、いつも空いてる気がするんだが」',
+  '「まあ、あいつは出来るときは出来るからな」',
+  '「高野くん、また誰かと喋ってなかったか?」',
+  '「今日はよく手が動いてたな。明日もそれで」'
+];
+
+/* ================= difficulty ================= */
+var DIFFS = {
+  normal: {
+    key:'normal', label:'ノーマル', days:3, time:46, timeStep:3, endless:false,
+    workRate:3.0, workDayMul:0.25,
+    sowaRate:10, sowaDayMul:1.6, spawnT:[2.5,3.8], spawnDayMul:0.45, maxGuests:4,
+    itemT:[3.0,4.8], itemDayMul:0.35, flyerBase:0.44, flyerDayMul:0.07,
+    guestSpd:[32,42], guestSpdDayMul:5, quizTime:3.0, quizDayMul:0.15,
+    voiceRecharge:10, voiceCost:32, flyAway:0.22, flyDayMul:0.05, cbNeed:10
+  },
+  hard: {
+    key:'hard', label:'ハード', days:4, time:42, timeStep:2.4, endless:false,
+    workRate:2.7, workDayMul:0.2,
+    sowaRate:13, sowaDayMul:1.9, spawnT:[2.0,3.0], spawnDayMul:0.45, maxGuests:5,
+    itemT:[2.5,4.0], itemDayMul:0.35, flyerBase:0.52, flyerDayMul:0.07,
+    guestSpd:[40,50], guestSpdDayMul:6, quizTime:2.4, quizDayMul:0.15,
+    voiceRecharge:8.5, voiceCost:34, flyAway:0.3, flyDayMul:0.055, cbNeed:13
+  },
+  oni: {
+    key:'oni', label:'修羅場', days:5, time:38, timeStep:2, endless:false,
+    workRate:2.4, workDayMul:0.15,
+    sowaRate:16, sowaDayMul:2.1, spawnT:[1.5,2.3], spawnDayMul:0.4, maxGuests:6,
+    itemT:[1.9,3.2], itemDayMul:0.3, flyerBase:0.6, flyerDayMul:0.07,
+    guestSpd:[48,60], guestSpdDayMul:6, quizTime:1.9, quizDayMul:0.15,
+    voiceRecharge:7, voiceCost:36, flyAway:0.38, flyDayMul:0.06, cbNeed:16
+  },
+  jigoku: {
+    key:'jigoku', label:'定時なんて無い', days:7, time:36, timeStep:1.6, endless:false,
+    workRate:2.6, workDayMul:0.1,
+    sowaRate:19, sowaDayMul:2.3, spawnT:[1.2,1.9], spawnDayMul:0.35, maxGuests:7,
+    itemT:[1.6,2.6], itemDayMul:0.25, flyerBase:0.66, flyerDayMul:0.06,
+    guestSpd:[54,68], guestSpdDayMul:6, quizTime:1.6, quizDayMul:0.12,
+    voiceRecharge:6, voiceCost:38, flyAway:0.44, flyDayMul:0.06, cbNeed:19
+  },
+  endless: {
+    key:'endless', label:'エンドレス', days:999, time:40, timeStep:0.6, endless:true,
+    workRate:2.7, workDayMul:0.06,
+    sowaRate:12, sowaDayMul:1.0, spawnT:[2.2,3.3], spawnDayMul:0.16, maxGuests:6,
+    itemT:[2.6,4.2], itemDayMul:0.16, flyerBase:0.46, flyerDayMul:0.03,
+    guestSpd:[38,48], guestSpdDayMul:3, quizTime:2.8, quizDayMul:0.06,
+    voiceRecharge:8.5, voiceCost:34, flyAway:0.26, flyDayMul:0.02, cbNeed:11
+  }
+};
+
+/* ================= state ================= */
+var G = null;
+function newGame(key){
+  var d = DIFFS[key] || DIFFS.normal;
+  return {
+    diff:d, day:1, days:d.days,
+    time:d.time, work:0, sowa:16, voice:100,
+    combo:0, aniki:0,
+    mode:'seated',   /* seated | walking | away | fukuoka | talking | callback | paused */
+    x:SEAT_X, face:1,
+    awayT:0, bubble:null, bubbleT:0,
+    heard:{}, guests:[], items:[], fx:[], planes:[],
+    spawnT:1.8, itemT:3.2, longTalk:0, quiz:null, cb:null, endDelay:0,
+    focus:0, lastCalm:-9, calmSpam:0,
+    running:false,
+    shake:0, t:0,
+    ach:{flyerHits:0, fukuoka:0, bossSeen:0, quizWrong:0, quizTotal:0, aniki:0, minoruWin:0, talks:0},
+    dayLog:null
+  };
+}
+
+/* ================= helpers ================= */
+var toastEl = document.getElementById('toast');
+var toastT = 0;
+function toast(msg, ms){ toastEl.innerHTML = msg; toastEl.style.opacity = '1'; toastT = (ms || 900) / 1000; }
+function pop(x, y, text, color){ G.fx.push({x:x, y:y, t:0, life:0.95, text:text, c:color || '#fff6ea'}); }
+function rnd(a, b){ return a + Math.random() * (b - a); }
+function pick(a){ return a[(Math.random() * a.length) | 0]; }
+function say(text){ G.bubble = text; G.bubbleT = 2.2; }
+
+/* 集中ストリークの倍率。座り続けるほど伸びる */
+function focusMul(){
+  var f = G.focus;
+  if (f < 3) return 0.45;
+  if (f < 8) return 1.0;
+  if (f < 15) return 1.7;
+  return 2.4;
+}
+function breakFocus(){ G.focus = 0; }
+function pickPerson(){
+  var r = Math.random() * WSUM, acc = 0;
+  for (var i = 0; i < PEOPLE.length; i++){ acc += PEOPLE[i].w; if (r < acc) return i; }
+  return 0;
+}
+
+/* ================= spawning ================= */
+function spawnGuest(){
+  var d = G.diff, fromLeft = Math.random() < 0.5, pi = pickPerson(), p = PEOPLE[pi];
+  G.guests.push({
+    x: fromLeft ? -34 : VW + 34,
+    dir: fromLeft ? 1 : -1,
+    spd: rnd(d.guestSpd[0], d.guestSpd[1]) + G.day * d.guestSpdDayMul,
+    p: pi, kind: p.kind, st: 'walk', step: Math.random() * 6, judged: false,
+    stop: p.kind === 'boss' ? (fromLeft ? VW + 50 : -50) : (fromLeft ? DESK_L - 30 : DESK_R + 30)
+  });
+}
+function spawnItem(){
+  var d = G.diff;
+  var r = Math.random();
+  var kind;
+  if (r < (d.flyerBase + G.day * d.flyerDayMul)) kind = 'flyer';
+  else if (r < (d.flyerBase + G.day * d.flyerDayMul) + 0.3) kind = 'plan';
+  else kind = 'coffee';
+  var flyer = (kind !== 'coffee');
+  var fromLeft = Math.random() < 0.5;
+  G.items.push({
+    kind: kind,
+    x: fromLeft ? -20 : VW + 20,
+    y: flyer ? rnd(148, 198) : FLOOR - 12,
+    vx: (fromLeft ? 1 : -1) * (flyer ? rnd(72, 100) : rnd(46, 64)),
+    vy: flyer ? rnd(12, 20) : 0,
+    sp: Math.random() * 6
+  });
+}
+
+/* ================= quiz ================= */
+var quizEl = document.getElementById('quiz');
+var quizQ = document.getElementById('quizQ');
+var quizFill = document.getElementById('quizTimerFill');
+
+function startTalk(guest){
+  var known = [], i;
+  for (var k in G.heard){ if (G.heard[k] > 0) known.push(+k); }
+  var ti;
+  if (known.length && Math.random() < 0.58) ti = pick(known);
+  else {
+    var fresh = [];
+    for (i = 0; i < TOPICS.length; i++){ if (!G.heard[i]) fresh.push(i); }
+    ti = fresh.length ? pick(fresh) : pick(known.length ? known : [0]);
+  }
+  var isM = (guest.kind === 'minoru');
+  guest.st = 'talk';
+  G.mode = 'talking';
+  G.ach.talks++;
+  breakFocus();
+  var qt = Math.max(1.3, G.diff.quizTime - G.day * G.diff.quizDayMul) * (isM ? 0.72 : 1);
+  G.quiz = {ti:ti, t:qt, max:qt, g:guest, m:isM, answer:(G.heard[ti] ? 'old' : 'new')};
+  quizQ.innerHTML = (isM ? '<em>実さんが捕まえた!</em><br>' : '') +
+    '高野さん「' + pick(PREFIX) + '、' + TOPICS[ti] + '——」';
+  quizEl.classList.remove('hide');
+  quizFill.style.width = '100%';
+}
+
+function resolveQuiz(ans){
+  if (!G.quiz) return;
+  var q = G.quiz, ti = q.ti;
+  var correct = (ans === q.answer);
+  G.heard[ti] = (G.heard[ti] || 0) + 1;
+  G.ach.quizTotal++;
+  quizEl.classList.add('hide');
+  G.quiz = null;
+  q.g.st = 'leave';
+  q.g.dir = (q.g.x < SEAT_X) ? -1 : 1;
+  q.g.spd *= 1.4;
+
+  if (correct){
+    G.combo++;
+    var gain = q.m ? 11 : 4;
+    G.work = Math.min(100, G.work + gain);
+    G.sowa = Math.max(0, G.sowa - (q.m ? 34 : 22));
+    G.mode = 'seated';
+    if (q.m) G.ach.minoruWin++;
+    say(q.answer === 'old' ? pick(CUTLINE) : pick(SATLINE));
+    toast((q.m ? '実さんをさばいた!<br>' : 'うまくさばいた<br>') +
+      '<span style="font-size:12px;opacity:.8">仕事 +' + gain + '</span>', 850);
+    if (G.combo >= 3) triggerAniki();
+  } else {
+    G.combo = 0;
+    G.ach.quizWrong++;
+    G.mode = 'talking';
+    G.longTalk = q.m ? 5.2 : 4.0;
+    G.longTalkM = q.m;
+    say(q.answer === 'old' ? pick(LONGLINE_OLD) : pick(LONGLINE_NEW));
+    toast((q.m ? '実さんの長話に捕まった' : '長話に突入') +
+      '<br><span style="font-size:11.5px;opacity:.85">' + G.longTalk.toFixed(1) +
+      '秒 手が止まる / 仕事 -' + (G.longTalk * (q.m ? 2.2 : 1.3)).toFixed(0) +
+      ' / ソワソワ上昇</span>', 1400);
+  }
+}
+document.getElementById('qOld').addEventListener('click', function(){ resolveQuiz('old'); });
+document.getElementById('qNew').addEventListener('click', function(){ resolveQuiz('new'); });
+
+function triggerAniki(){
+  G.aniki = 12; G.combo = 0; G.ach.aniki++;
+  toast('スイッチ入った<br><span style="font-size:13px">兄貴モード!</span>', 1200);
+}
+
+/* ================= callback minigame (福岡阻止) ================= */
+var cbEl = document.getElementById('callback');
+var cbBtn = document.getElementById('cbBtn');
+var cbBarFill = document.getElementById('cbBarFill');
+var cbCount = document.getElementById('cbCount');
+
+function startCallback(stage){
+  G.mode = 'callback';
+  var isGate = (stage === 2);
+  var baseNeed = Math.max(5, G.diff.cbNeed - 1);
+  G.cb = {
+    t: isGate ? 2.6 : 3.2, max: isGate ? 2.6 : 3.2,
+    taps:0, need: isGate ? Math.round(baseNeed * 1.1) : baseNeed,
+    stage: stage, pulse: 0, gapT: 0
+  };
+  document.getElementById('cbTitle').innerHTML = isGate
+    ? '搭乗ゲートに並んでる!<small>最後のチャンス。連打して電話を鳴らし続けろ</small>'
+    : '高野さんがエレベーターに乗った!<small>連打して電話で呼び止めろ</small>';
+  cbBtn.textContent = isGate ? '鳴らし続ける' : '呼び止める';
+  cbCount.textContent = '0 / ' + G.cb.need;
+  cbBarFill.style.width = '0%';
+  cbEl.classList.remove('hide');
+}
+cbBtn.addEventListener('click', function(){
+  if (!G.cb || G.cb.gapT > 0) return;
+  G.cb.taps++;
+  G.cb.pulse = 1;
+  cbCount.textContent = G.cb.taps + ' / ' + G.cb.need;
+  cbBarFill.style.width = Math.min(100, G.cb.taps / G.cb.need * 100) + '%';
+  if (G.cb.taps >= G.cb.need) endCallback(true);
+});
+function endCallback(ok){
+  var stage = G.cb ? G.cb.stage : 1;
+  if (ok){
+    G.cb = null;
+    cbEl.classList.add('hide');
+    G.mode = 'seated'; G.x = SEAT_X; G.sowa = 38;
+    breakFocus();
+    say(stage === 2 ? 'いや、乗る気はなかったって' : 'もう、しょうがないなあ');
+    toast(stage === 2 ? 'ゲートで捕まえた!' : '間一髪、呼び止めた', 1100);
+  } else if (stage === 1){
+    /* 一度失敗しても搭乗前にもう一度だけ止められる。setTimeoutは使わず
+       cb.gapTでフレームループ内に留めて次の呼び止めに繋ぐ(状態を空にしない) */
+    G.planes.push({x:-60, y:rnd(52, 96), sp:rnd(52, 68)});
+    toast('高野さん、羽田に着いた<br><span style="font-size:12px;opacity:.85">まだ間に合う</span>', 1100);
+    document.getElementById('cbTitle').innerHTML = '搭乗手続き中…<small>まもなくゲートが見える</small>';
+    G.cb.gapT = 0.8; G.cb.stage = 2;
+  } else {
+    G.cb = null;
+    cbEl.classList.add('hide');
+    G.ach.fukuoka++;
+    G.mode = 'fukuoka';
+    G.planes.push({x:-60, y:rnd(52, 96), sp:rnd(52, 68)});
+    G.endDelay = 1.4;
+    toast('離陸しました', 1300);
+  }
+}
+
+/* ================= input ================= */
+function hit(px, py){
+  if (!G.running || G.mode === 'callback') return;
+
+  for (var i = G.items.length - 1; i >= 0; i--){
+    var it = G.items[i];
+    if (Math.abs(px - it.x) < 28 && Math.abs(py - it.y) < 28){
+      if (it.kind === 'coffee'){
+        /* ソワソワが低いうちに使うと無駄打ちになる */
+        if (G.sowa < 42){
+          pop(it.x, it.y, 'まだいらん、と断られた', '#9b8f9f');
+          G.voice = Math.max(0, G.voice - 6);
+        } else {
+          G.sowa = Math.max(0, G.sowa - 40);
+          G.voice = Math.min(100, G.voice + 16);
+          pop(it.x, it.y, '缶コーヒー差し入れ', '#ffc95b');
+        }
+      } else if (it.kind === 'plan'){
+        /* 図面は高野さんの仕事道具。落としてはいけない */
+        G.work = Math.max(0, G.work - 5);
+        breakFocus();
+        pop(it.x, it.y, '図面を叩き落とした!', '#ff6b5b');
+      } else {
+        pop(it.x, it.y, 'チラシ回収', '#7fd6e0');
+      }
+      G.items.splice(i, 1);
+      return;
+    }
+  }
+
+  for (var j = G.guests.length - 1; j >= 0; j--){
+    var g = G.guests[j];
+    if (g.st !== 'walk') continue;
+    if (Math.abs(px - g.x) < 30 && py > FLOOR - 78 && py < FLOOR + 14){
+      var p = PEOPLE[g.p];
+      if (g.kind === 'boss'){
+        G.sowa = Math.min(100, G.sowa + 12);
+        G.voice = Math.max(0, G.voice - 22);
+        pop(g.x, FLOOR - 82, p.n + 'を追い払おうとした…', '#ff6b5b');
+      } else if (g.kind === 'minoru'){
+        G.voice = Math.max(0, G.voice - 12);
+        pop(g.x, FLOOR - 82, '実さんは止まらない', '#ff6b5b');
+      } else {
+        g.st = 'leave'; g.dir = -g.dir; g.spd *= 1.7;
+        pop(g.x, FLOOR - 82, '別件に流した', '#7fd6e0');
+        G.combo++;
+        if (G.combo >= 3) triggerAniki();
+      }
+      return;
+    }
+  }
+
+  if (Math.abs(px - G.x) < 44 && py > 168 && py < FLOOR + 20){
+    if (G.mode === 'away' || G.mode === 'fukuoka') return;
+    var isRescue = (G.mode === 'walking');
+    var cost = isRescue ? Math.round(G.diff.voiceCost * 0.55) : G.diff.voiceCost;
+
+    /* 連打ペナルティ: 短時間に重ねるほど効かなくなり、最後は逆効果 */
+    var gap = G.t - G.lastCalm;
+    if (gap < 1.4) G.calmSpam++; else G.calmSpam = 0;
+    G.lastCalm = G.t;
+
+    if (!isRescue && G.calmSpam >= 2){
+      G.voice = Math.max(0, G.voice - Math.round(cost * 0.6));
+      G.sowa = Math.min(100, G.sowa + 9);
+      say('わかったって! ちなみにさー、うるさいって');
+      pop(SEAT_X, 196, 'うるさがられた', '#ff6b5b');
+      return;
+    }
+    if (G.voice < cost){ pop(G.x, 200, '声かけ切れ', '#ff6b5b'); return; }
+    G.voice -= cost;
+
+    /* 落ち着いてる時に声をかけても効き目が薄い */
+    var eff = (!isRescue && G.sowa < 30) ? 0.35 : 1;
+    G.sowa = Math.max(0, G.sowa - 30 * eff);
+
+    if (isRescue){
+      G.mode = 'seated'; G.x = SEAT_X;
+      say('わかったわかった、やるよ');
+      pop(SEAT_X, 196, '席に戻した', '#ffc95b');
+    } else {
+      say(pick(CALM));
+      pop(SEAT_X, 196, eff < 1 ? '今はまだ効かない' : '落ち着いた', eff < 1 ? '#9b8f9f' : '#d6c6ff');
+    }
+    return;
+  }
+
+  /* 何にも当たらなかった = 空振り。手当たり次第の連打を罰する */
+  G.voice = Math.max(0, G.voice - 7);
+  G.focus = Math.max(0, G.focus - 2.5);
+  pop(px, py, '空振り', 'rgba(255,246,234,0.5)');
+}
+cv.addEventListener('pointerdown', function(e){
+  var r = cv.getBoundingClientRect();
+  hit((e.clientX - r.left) / r.width * VW, (e.clientY - r.top) / r.height * VH);
+});
+
+/* ================= update ================= */
+var lastT = 0;
+function update(dt){
+  G.t += dt;
+  if (toastT > 0){ toastT -= dt; if (toastT <= 0) toastEl.style.opacity = '0'; }
+  if (G.bubbleT > 0) G.bubbleT -= dt;
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 3);
+  for (var pl = G.planes.length - 1; pl >= 0; pl--){
+    G.planes[pl].x += G.planes[pl].sp * dt;
+    if (G.planes[pl].x > VW + 80) G.planes.splice(pl, 1);
+  }
+
+  /* callback minigame freezes the world except its own timer */
+  if (G.mode === 'callback'){
+    if (!G.cb){ return; }  /* 保険: 万一空でもクラッシュさせない */
+    if (G.cb.pulse > 0) G.cb.pulse = Math.max(0, G.cb.pulse - dt * 4);
+    if (G.cb.gapT > 0){
+      G.cb.gapT -= dt;
+      if (G.cb.gapT <= 0) startCallback(2);
+      return;
+    }
+    G.cb.t -= dt;
+    if (G.cb.t <= 0) endCallback(false);
+    return;
+  }
+  /* 福岡到着の演出待ち。G.runningは意図的に維持し、ここでカウントダウンする */
+  if (G.mode === 'fukuoka'){
+    if (G.endDelay > 0){
+      G.endDelay -= dt;
+      if (G.endDelay <= 0){ G.running = false; showEnd(false, 'fukuoka'); }
+    }
+    return;
+  }
+
+  G.time -= dt;
+  if (G.aniki > 0) G.aniki -= dt;
+
+  if (G.longTalk > 0){
+    G.longTalk -= dt;
+    G.sowa = Math.min(100, G.sowa + dt * 9);
+    /* 長話は時間が溶けるだけでなく、手が止まって書類が散らかる */
+    G.work = Math.max(0, G.work - dt * (G.longTalkM ? 2.2 : 1.3));
+    if (G.longTalk <= 0){ G.mode = 'seated'; G.longTalkM = false; say('で、何の話だっけ'); }
+  }
+
+  G.voice = Math.min(100, G.voice + dt * G.diff.voiceRecharge);
+
+  if (G.mode === 'seated'){
+    var rate = G.diff.sowaRate + G.day * G.diff.sowaDayMul;
+    if (G.aniki > 0) rate *= 0.35;
+    G.sowa = Math.min(100, G.sowa + dt * rate);
+
+    /* 集中ストリーク: 邪魔されず座り続けた秒数で仕事の速度が段階的に上がる。
+       一度でも中断されるとゼロに戻るので、事後対応より予防が効く */
+    G.focus += dt;
+    var fm = focusMul();
+    var wr = (G.diff.workRate + G.day * G.diff.workDayMul) * fm * (G.aniki > 0 ? 2.2 : 1);
+    G.work = Math.min(100, G.work + dt * wr);
+  } else {
+    G.focus = 0;
+  }
+
+  if (G.sowa >= 100 && G.mode === 'seated'){
+    G.mode = 'walking';
+    breakFocus();
+    G.face = Math.random() < (G.diff.flyAway + G.day * G.diff.flyDayMul) ? 1 : -1;
+    say(pick(STANDCRY));
+    G.shake = 1;
+  }
+
+  if (G.mode === 'walking'){
+    G.x += G.face * dt * 54;
+    if (G.x > VW + 40){ startCallback(1); }
+    else if (G.x < -40){
+      G.mode = 'away'; G.awayT = 3.6;
+      toast('喫煙所へ行かれた<br><span style="font-size:11.5px;opacity:.85">3.6秒 仕事は完全に止まる / 集中リセット</span>', 1300);
+    }
+  }
+  if (G.mode === 'away'){
+    G.awayT -= dt;
+    G.combo = 0;
+    breakFocus();
+    if (G.awayT <= 0){
+      G.mode = 'seated'; G.x = SEAT_X; G.sowa = 44;
+      say('ごめんごめん、で、どこまで?');
+    }
+  }
+
+  /* guests */
+  G.spawnT -= dt;
+  if (G.spawnT <= 0 && G.guests.length < G.diff.maxGuests){
+    spawnGuest();
+    var d0 = G.diff;
+    G.spawnT = Math.max(0.9, rnd(d0.spawnT[0], d0.spawnT[1]) - G.day * d0.spawnDayMul);
+  }
+  for (var i = G.guests.length - 1; i >= 0; i--){
+    var g = G.guests[i];
+    g.step += dt * 7;
+    if (g.st === 'walk'){
+      g.x += g.dir * g.spd * dt;
+      /* boss judgement when passing the desk */
+      if (g.kind === 'boss' && !g.judged && g.x > DESK_L - 40 && g.x < DESK_R + 40){
+        g.judged = true;
+        if (G.mode !== 'seated' && G.mode !== 'talking'){
+          G.work = Math.max(0, G.work - 7);
+          G.ach.bossSeen++;
+          G.shake = 1;
+          toast(PEOPLE[g.p].n + 'に空席を見られた<br><span style="font-size:12px;opacity:.8">仕事 -7</span>', 1100);
+        } else {
+          pop(g.x, FLOOR - 96, '見逃してもらった', '#7fd6e0');
+        }
+      }
+      var reached = g.dir > 0 ? (g.x >= g.stop) : (g.x <= g.stop);
+      if (reached){
+        if (g.kind === 'boss'){ G.guests.splice(i, 1); continue; }
+        if (G.mode === 'seated'){ startTalk(g); }
+        else { g.st = 'leave'; g.dir = -g.dir; }
+      }
+    } else if (g.st === 'leave'){
+      g.x += g.dir * g.spd * dt;
+      if (g.x < -60 || g.x > VW + 60) G.guests.splice(i, 1);
+    }
+  }
+
+  if (G.quiz){
+    G.quiz.t -= dt;
+    quizFill.style.width = Math.max(0, G.quiz.t / G.quiz.max * 100) + '%';
+    if (G.quiz.t <= 0) resolveQuiz(G.quiz.answer === 'old' ? 'new' : 'old');
+  }
+
+  /* items */
+  G.itemT -= dt;
+  if (G.itemT <= 0){
+    spawnItem();
+    var d1 = G.diff;
+    G.itemT = Math.max(1.4, rnd(d1.itemT[0], d1.itemT[1]) - G.day * d1.itemDayMul);
+  }
+  for (var k = G.items.length - 1; k >= 0; k--){
+    var it = G.items[k];
+    it.x += it.vx * dt; it.y += it.vy * dt; it.sp += dt * 5;
+    if (it.kind === 'flyer' || it.kind === 'plan'){
+      it.vy += dt * 26;
+      if (it.y > DESK_TOP - 8 && it.x > DESK_L - 20 && it.x < DESK_R + 20){
+        if (it.kind === 'plan'){
+          G.work = Math.min(100, G.work + 6);
+          pop(SEAT_X, DESK_TOP - 30, '図面が届いた 仕事 +6', '#7fd6e0');
+        } else {
+          G.sowa = Math.min(100, G.sowa + 46);
+          G.combo = 0; G.shake = 1; G.ach.flyerHits++;
+          breakFocus();
+          say('ちょっとホームセンター見てくる');
+          toast('チラシが机に着弾!', 900);
+        }
+        G.items.splice(k, 1);
+        continue;
+      }
+    }
+    if (it.x < -50 || it.x > VW + 50 || it.y > VH + 40) G.items.splice(k, 1);
+  }
+
+  for (var f = G.fx.length - 1; f >= 0; f--){
+    G.fx[f].t += dt;
+    if (G.fx[f].t > G.fx[f].life) G.fx.splice(f, 1);
+  }
+
+  if (G.work >= 100) endDay(true);
+  else if (G.time <= 0) endDay(false);
+}
+
+/* ================= day / end screens ================= */
+var dayScreen = document.getElementById('dayScreen');
+var endScreen = document.getElementById('endScreen');
+var startScreen = document.getElementById('startScreen');
+
+function endDay(cleared){
+  if (G.quiz){ quizEl.classList.add('hide'); G.quiz = null; }
+  if (G.cb){ cbEl.classList.add('hide'); G.cb = null; }
+  G.running = false;
+  toastEl.style.opacity = '0';
+  if (cleared && (G.diff.endless || G.day < G.days)) showDay();
+  else showEnd(cleared, cleared ? 'cleared' : 'time');
+}
+
+function showDay(){
+  document.getElementById('dayTag').textContent = 'DAY ' + G.day + ' 完了　' + G.diff.label;
+  document.getElementById('dayTitle').textContent = '定時に上がれた';
+  document.getElementById('dayFlavor').innerHTML = pick(BOSS_FLAVOR) +
+    '<br><span style="opacity:.6; font-size:11px">— ' + (Math.random() < 0.5 ? '上司' : '取締役') + 'の独り言</span>';
+  var a = G.ach;
+  document.getElementById('dayStats').innerHTML =
+    '<div><span>' + a.talks + '</span> 回 捕まった</div>' +
+    '<div><span>' + a.aniki + '</span> 回 兄貴モード</div>' +
+    '<div><span>' + a.flyerHits + '</span> 回 チラシ着弾</div>' +
+    '<div><span>' + a.fukuoka + '</span> 回 福岡へ飛ばれた</div>';
+  dayScreen.classList.remove('hide');
+}
+
+document.getElementById('btnNextDay').addEventListener('click', function(){
+  dayScreen.classList.add('hide');
+  var d = G.diff;
+  G.day++;
+  G.time = Math.max(18, d.time - (G.day - 1) * d.timeStep);
+  G.work = 0; G.sowa = 18; G.voice = 100; G.combo = 0; G.aniki = 0;
+  G.guests = []; G.items = []; G.fx = []; G.planes = [];
+  G.mode = 'seated'; G.x = SEAT_X; G.longTalk = 0;
+  G.spawnT = Math.max(0.8, 1.7 - G.day * 0.1);
+  G.itemT = Math.max(1.2, 2.9 - G.day * 0.13);
+  G.running = true;
+});
+
+function achLine(ok, text){
+  return '<div class="' + (ok ? '' : 'no') + '"><span>' + (ok ? '○' : '×') + '</span> ' + text + '</div>';
+}
+function showEnd(cleared, reason){
+  var a = G.ach, heardCount = 0, topics = 0;
+  for (var k in G.heard){ heardCount += G.heard[k]; topics++; }
+  var title, body;
+  if (reason === 'fukuoka'){
+    title = '高野さん、福岡に着きました';
+    body = '定時の3時間後、高野さんから写真が1枚だけ届いた。<br>' +
+      '<div style="margin:9px auto 0; max-width:300px; background:rgba(127,214,224,0.12); border-left:3px solid var(--teal); border-radius:0 9px 9px 0; padding:9px 11px; text-align:left; font-size:11.5px; line-height:1.75;">' +
+      '「ちなみにさー、<b>' + pick(['タワー', 'タワーのライトアップ', 'ヨルノヨの現場']) + 'がさー、</b><br>' +
+      'やっぱ実物見んとわからんって<br>' +
+      '月曜、写真持ってくけん」' +
+      '<div style="opacity:.5; font-size:9.5px; margin-top:5px;">添付: 福岡タワー (1枚)　既読つかず</div></div>' +
+      '<div style="margin-top:9px; opacity:.7; font-size:11px;">仕事は ' + G.work.toFixed(0) + '% で止まったまま。<br>聞かされた話 ' + heardCount + '回 / ' + topics + '種類</div>';
+  } else if (G.diff.endless){
+    title = '記録: DAY ' + G.day + ' で力尽きた';
+    body = '銀座で ' + (G.day - 1) + ' 日ぶん、高野さんを机に縛りつけた。<br>' +
+      '<span style="opacity:.7;font-size:11px">聞かされた話 ' + heardCount + '回 / ' + topics + '種類</span>';
+  } else if (cleared){
+    title = '定時退社、達成（' + G.diff.label + '）';
+    body = G.days + '日間、高野さんを机に縛りつけきった。<br>「よし、じゃあ福岡タワー見に行こうや」<br>' +
+      '<span style="opacity:.7;font-size:11px">聞かされた話 ' + heardCount + '回 / ' + topics + '種類</span>';
+  } else {
+    title = '残業確定（' + G.diff.label + '）';
+    body = 'DAY ' + G.day + ' の定時、仕事は ' + G.work.toFixed(0) + '% で時間切れ。<br>高野さんはまだ喋ってる。<br>' +
+      '<span style="opacity:.7;font-size:11px">聞かされた話 ' + heardCount + '回 / ' + topics + '種類</span>';
+  }
+  document.getElementById('endTitle').textContent = title;
+  document.getElementById('endBody').innerHTML = body;
+  document.getElementById('endAch').innerHTML =
+    achLine(a.flyerHits === 0, 'チラシ完封 — 一度も机に届かせなかった') +
+    achLine(a.fukuoka === 0, '出国阻止 — 福岡に飛ばれなかった') +
+    achLine(a.bossSeen === 0, '体裁は保った — 社長らに空席を見られなかった') +
+    achLine(a.quizTotal > 0 && a.quizWrong === 0, '記憶力 — 「何回目?」を全問正解') +
+    achLine(a.minoruWin >= 2, '実さん対策済み — 実さんを2回以上さばいた') +
+    achLine(a.aniki >= 3, '兄貴の申し子 — 兄貴モード3回以上');
+  endScreen.classList.remove('hide');
+}
+
+/* ================= drawing ================= */
+function drawBG(){
+  var wall = ctx.createLinearGradient(0, 0, 0, VH);
+  wall.addColorStop(0, '#3a2d42'); wall.addColorStop(0.62, '#2b2233'); wall.addColorStop(1, '#1a1520');
+  ctx.fillStyle = wall; ctx.fillRect(0, 0, VW, VH);
+
+  var wx = 44, wy = 34, ww = VW - 88, wh = 132;
+  var sky = ctx.createLinearGradient(0, wy, 0, wy + wh);
+  sky.addColorStop(0, '#1b2a52'); sky.addColorStop(0.45, '#6a4a7a'); sky.addColorStop(1, '#e08a5f');
+  ctx.fillStyle = sky; ctx.fillRect(wx, wy, ww, wh);
+
+  ctx.fillStyle = 'rgba(255,210,122,0.9)';
+  ctx.beginPath(); ctx.arc(wx + ww * 0.2, wy + wh * 0.62, 14, 0, 6.284); ctx.fill();
+
+  /* Ginza skyline: dense buildings with lit windows */
+  ctx.fillStyle = '#241d33';
+  var bw = (ww - 12) / 11;
+  for (var b = 0; b < 11; b++){
+    var bx = wx + 6 + b * bw;
+    var bh = 34 + ((b * 43) % 52);
+    ctx.fillRect(bx, wy + wh - bh, bw - 3, bh);
+    ctx.fillStyle = 'rgba(255,201,91,0.5)';
+    for (var r2 = 0; r2 < ((bh / 12) | 0); r2++){
+      for (var c2 = 0; c2 < 2; c2++){
+        if ((b + r2 + c2) % 3) ctx.fillRect(bx + 3 + c2 * 9, wy + wh - bh + 5 + r2 * 11, 4, 5);
+      }
+    }
+    ctx.fillStyle = '#241d33';
+  }
+
+  /* planes (福岡 escape) */
+  for (var pi = 0; pi < G.planes.length; pi++){
+    var pp = G.planes[pi];
+    if (pp.x > wx - 30 && pp.x < wx + ww + 30){
+      ctx.save();
+      ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+      ctx.fillStyle = '#fff6ea';
+      ctx.beginPath();
+      ctx.moveTo(pp.x - 11, pp.y); ctx.lineTo(pp.x + 11, pp.y - 2); ctx.lineTo(pp.x + 11, pp.y + 2);
+      ctx.closePath(); ctx.fill();
+      ctx.fillRect(pp.x - 3, pp.y - 6, 3, 12);
+      ctx.restore();
+    }
+  }
+
+  ctx.strokeStyle = '#4c3b56'; ctx.lineWidth = 6; ctx.strokeRect(wx, wy, ww, wh);
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,246,234,0.05)';
+  for (var s = 0; s < 8; s++) ctx.fillRect(wx, wy + 6 + s * 16, ww, 5);
+
+  ctx.fillStyle = '#2f2436'; ctx.fillRect(0, FLOOR, VW, VH - FLOOR);
+  ctx.fillStyle = 'rgba(255,246,234,0.045)';
+  for (var t2 = 0; t2 < 9; t2++) ctx.fillRect(t2 * 62, FLOOR, 34, VH - FLOOR);
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, FLOOR); ctx.lineTo(VW, FLOOR); ctx.stroke();
+
+  ctx.font = '700 9px "Hiragino Sans", sans-serif';
+  ctx.fillStyle = 'rgba(255,246,234,0.4)';
+  ctx.textAlign = 'left'; ctx.fillText('← 喫煙所（路地）', 8, FLOOR - 98);
+  ctx.textAlign = 'right'; ctx.fillText('エレベーター → 羽田 →', VW - 8, FLOOR - 98);
+  ctx.textAlign = 'center';
+}
+
+function drawTakano(x, y, seated, walkPhase){
+  var bob = seated ? Math.sin(G.t * 3) * 0.8 : Math.sin(walkPhase) * 1.6;
+  var yy = y + bob;
+  ctx.save();
+  ctx.translate(x, yy);
+  if (!seated) ctx.scale(G.face, 1);
+
+  if (G.aniki > 0){
+    var gr = ctx.createRadialGradient(0, -34, 4, 0, -34, 52);
+    gr.addColorStop(0, 'rgba(255,201,91,0.45)'); gr.addColorStop(1, 'rgba(255,201,91,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, -34, 52, 0, 6.284); ctx.fill();
+  }
+
+  ctx.fillStyle = '#2f3a4a';
+  if (seated){
+    ctx.fillRect(-11, -18, 9, 18); ctx.fillRect(3, -18, 9, 18);
+  } else {
+    var sw = Math.sin(walkPhase) * 6;
+    ctx.fillRect(-10 + sw, -20, 9, 20); ctx.fillRect(2 - sw, -20, 9, 20);
+    ctx.fillStyle = '#191320';
+    ctx.fillRect(-12 + sw, -3, 12, 4); ctx.fillRect(1 - sw, -3, 12, 4);
+  }
+
+  ctx.fillStyle = '#3f7fbf';
+  ctx.fillRect(-20, -50, 7, 24); ctx.fillRect(13, -50, 7, 24);
+
+  ctx.fillStyle = '#8e9099';
+  ctx.beginPath();
+  ctx.moveTo(-16, -52); ctx.lineTo(16, -52); ctx.lineTo(18, -18); ctx.lineTo(-18, -18);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 1;
+  for (var q = 0; q < 4; q++){
+    ctx.beginPath(); ctx.moveTo(-17, -46 + q * 8); ctx.lineTo(17, -46 + q * 8); ctx.stroke();
+  }
+  ctx.fillStyle = '#5c5e66'; ctx.fillRect(-1, -52, 2, 34);
+
+  ctx.fillStyle = '#191320';
+  ctx.beginPath(); ctx.ellipse(0, -55, 11, 6, 0, 0, 6.284); ctx.fill();
+
+  ctx.fillStyle = '#f3cfae';
+  ctx.beginPath(); ctx.ellipse(0, -70, 14, 14.5, 0, 0, 6.284); ctx.fill();
+
+  ctx.fillStyle = '#6b4326';
+  ctx.beginPath(); ctx.ellipse(0, -78, 15.5, 11, 0, Math.PI, 6.284); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-15, -76); ctx.quadraticCurveTo(-4, -66, 10, -73);
+  ctx.quadraticCurveTo(2, -80, -15, -80); ctx.closePath(); ctx.fill();
+
+  ctx.strokeStyle = '#2a1c14'; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(-8, -70); ctx.quadraticCurveTo(-5, -73.5, -2, -70);
+  ctx.moveTo(2, -70); ctx.quadraticCurveTo(5, -73.5, 8, -70);
+  ctx.stroke();
+
+  var talking = (G.mode === 'talking' || G.bubbleT > 0);
+  if (talking){
+    ctx.fillStyle = '#7a3b3b';
+    ctx.beginPath(); ctx.ellipse(0, -62, 4, 2.6 + Math.sin(G.t * 20) * 1.2, 0, 0, 6.284); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.moveTo(-4, -63); ctx.quadraticCurveTo(0, -60, 4, -63); ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(224,138,95,0.35)';
+  ctx.beginPath(); ctx.ellipse(-9, -65, 3.4, 2.2, 0, 0, 6.284); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(9, -65, 3.4, 2.2, 0, 0, 6.284); ctx.fill();
+  ctx.restore();
+
+  if (seated && G.sowa > 62){
+    ctx.fillStyle = 'rgba(255,107,91,' + Math.min(0.9, (G.sowa - 62) / 38) + ')';
+    ctx.font = '700 13px "Hiragino Sans", sans-serif';
+    ctx.fillText('ソワソワ', x + 36 + Math.sin(G.t * 9) * 4, yy - 90);
+  }
+}
+
+function drawGuest(g){
+  var p = PEOPLE[g.p];
+  var sw = Math.sin(g.step) * 5;
+  var sc = p.small ? 0.88 : 1;
+  ctx.save();
+  ctx.translate(g.x, FLOOR);
+  ctx.scale(sc, sc);
+
+  ctx.fillStyle = '#2b2333';
+  ctx.fillRect(-9 + sw, -19, 8, 19); ctx.fillRect(2 - sw, -19, 8, 19);
+
+  ctx.fillStyle = p.c;
+  ctx.beginPath();
+  ctx.moveTo(-13, -49); ctx.lineTo(13, -49); ctx.lineTo(15, -18); ctx.lineTo(-15, -18);
+  ctx.closePath(); ctx.fill();
+
+  /* boss suits get a lapel + tie */
+  if (g.kind === 'boss'){
+    ctx.fillStyle = 'rgba(255,246,234,0.9)';
+    ctx.beginPath(); ctx.moveTo(-4, -49); ctx.lineTo(4, -49); ctx.lineTo(0, -34); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#a8323c'; ctx.fillRect(-1.5, -44, 3, 13);
+  }
+  if (g.kind === 'minoru'){
+    ctx.fillStyle = 'rgba(255,201,91,0.85)';
+    ctx.fillRect(-13, -44, 26, 3);
+  }
+
+  ctx.fillStyle = '#f0c9a8';
+  ctx.beginPath(); ctx.ellipse(0, -60, 11, 11.5, 0, 0, 6.284); ctx.fill();
+  ctx.fillStyle = p.h;
+  ctx.beginPath(); ctx.ellipse(0, -66, 12, 9, 0, Math.PI, 6.284); ctx.fill();
+  ctx.fillStyle = '#2a1c14';
+  ctx.fillRect(-5, -61, 2, 2.4); ctx.fillRect(3, -61, 2, 2.4);
+
+  /* props */
+  if (p.prop === 'helmet'){
+    ctx.fillStyle = '#f0d24a';
+    ctx.beginPath(); ctx.ellipse(0, -68, 13, 10, 0, Math.PI, 6.284); ctx.fill();
+    ctx.fillRect(-14, -69, 28, 2.5);
+  } else if (p.prop === 'bag'){
+    ctx.fillStyle = '#3a2a20'; ctx.fillRect(14, -34, 10, 13);
+  } else if (p.prop === 'laptop'){
+    ctx.fillStyle = '#c9ccd4'; ctx.fillRect(11, -38, 15, 4);
+    ctx.fillStyle = '#7fd6e0'; ctx.fillRect(12, -44, 13, 6);
+  } else if (p.prop === 'paper'){
+    ctx.fillStyle = '#fff6ea'; ctx.fillRect(12, -40, 13, 10);
+    ctx.fillStyle = '#c9bda8'; ctx.fillRect(13, -37, 11, 1.5);
+  }
+  ctx.restore();
+
+  ctx.font = '700 9.5px "Hiragino Sans", sans-serif';
+  ctx.fillStyle = g.kind === 'boss' ? 'rgba(255,107,91,0.95)'
+    : (g.kind === 'minoru' ? 'rgba(255,201,91,0.95)' : 'rgba(255,246,234,0.8)');
+  ctx.fillText(p.n, g.x, FLOOR - 82);
+
+  if (g.st === 'walk'){
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,246,234,0.3)';
+    ctx.fillText(g.kind === 'normal' ? 'タップで流す' : '流せない', g.x, FLOOR - 94);
+  }
+}
+
+function drawDesk(){
+  ctx.fillStyle = '#241d2e'; ctx.fillRect(SEAT_X - 20, DESK_TOP + 4, 40, 8);
+  ctx.fillStyle = '#8a6a4a'; ctx.fillRect(DESK_L, DESK_TOP, DESK_R - DESK_L, 10);
+  ctx.fillStyle = '#6d5138'; ctx.fillRect(DESK_L, DESK_TOP + 10, DESK_R - DESK_L, 6);
+  ctx.fillStyle = '#4a3627';
+  ctx.fillRect(DESK_L + 6, DESK_TOP + 16, 8, FLOOR - DESK_TOP - 16);
+  ctx.fillRect(DESK_R - 14, DESK_TOP + 16, 8, FLOOR - DESK_TOP - 16);
+  ctx.fillStyle = '#191320'; ctx.fillRect(DESK_L + 14, DESK_TOP - 40, 52, 34);
+  ctx.fillStyle = (G.mode === 'seated') ? 'rgba(127,214,224,' + (0.5 + Math.sin(G.t * 6) * 0.12) + ')' : 'rgba(127,214,224,0.16)';
+  ctx.fillRect(DESK_L + 18, DESK_TOP - 36, 44, 26);
+  ctx.fillStyle = '#191320'; ctx.fillRect(DESK_L + 34, DESK_TOP - 6, 12, 6);
+  ctx.fillStyle = '#fff6ea'; ctx.fillRect(DESK_R - 44, DESK_TOP - 7, 30, 7);
+  ctx.fillStyle = '#e6dccb'; ctx.fillRect(DESK_R - 41, DESK_TOP - 11, 30, 5);
+}
+
+function drawItem(it){
+  ctx.save();
+  ctx.translate(it.x, it.y);
+  if (it.kind === 'coffee'){
+    ctx.rotate(Math.sin(it.sp) * 0.08);
+    ctx.fillStyle = '#c9542f'; ctx.fillRect(-7, -14, 14, 22);
+    ctx.fillStyle = '#f0e2c8'; ctx.fillRect(-7, -6, 14, 6);
+    ctx.fillStyle = '#8f8f96'; ctx.fillRect(-7, -16, 14, 3);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,201,91,0.85)';
+    ctx.fillText('缶コーヒー', it.x, it.y - 22);
+  } else if (it.kind === 'plan'){
+    ctx.rotate(Math.sin(it.sp) * 0.35);
+    ctx.fillStyle = '#7fd6e0'; ctx.fillRect(-14, -10, 28, 20);
+    ctx.fillStyle = '#1b3a44';
+    ctx.fillRect(-11, -7, 22, 1.6); ctx.fillRect(-11, -3, 14, 1.6);
+    ctx.fillRect(-11, 1, 18, 1.6); ctx.fillRect(-11, 5, 10, 1.6);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(127,214,224,0.95)';
+    ctx.fillText('図面 触るな!', it.x, it.y - 17);
+  } else {
+    ctx.rotate(Math.sin(it.sp) * 0.5);
+    ctx.fillStyle = '#ffe9a8'; ctx.fillRect(-13, -9, 26, 18);
+    ctx.fillStyle = '#ff6b5b'; ctx.fillRect(-13, -9, 26, 5);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(-10, 0, 20, 2); ctx.fillRect(-10, 4, 14, 2);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,107,91,0.95)';
+    ctx.fillText('特売チラシ!', it.x, it.y - 16);
+  }
+}
+
+function drawBubble(){
+  if (G.bubbleT <= 0 || !G.bubble) return;
+  var text = G.bubble;
+  ctx.font = '700 11px "Hiragino Sans", sans-serif';
+  var w = ctx.measureText(text).width + 18;
+  var bx = Math.max(8 + w / 2, Math.min(VW - 8 - w / 2, G.x + 40));
+  var by = 176, r = 7;
+  ctx.fillStyle = 'rgba(255,246,234,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(bx - w / 2 + r, by - 13);
+  ctx.arcTo(bx + w / 2, by - 13, bx + w / 2, by + 13, r);
+  ctx.arcTo(bx + w / 2, by + 13, bx - w / 2, by + 13, r);
+  ctx.arcTo(bx - w / 2, by + 13, bx - w / 2, by - 13, r);
+  ctx.arcTo(bx - w / 2, by - 13, bx + w / 2, by - 13, r);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(bx - 6, by + 12); ctx.lineTo(bx - 14, by + 24); ctx.lineTo(bx + 3, by + 13);
+  ctx.fill();
+  ctx.fillStyle = '#1a1420';
+  ctx.fillText(text, bx, by + 4);
+}
+
+function render(){
+  ctx.save();
+  if (G.shake > 0) ctx.translate(Math.sin(G.t * 60) * G.shake * 3, Math.cos(G.t * 51) * G.shake * 2);
+  drawBG();
+
+  var seated = (G.mode === 'seated' || G.mode === 'talking');
+  if (G.mode === 'away'){
+    ctx.font = '700 11px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,107,91,0.9)';
+    ctx.fillText('高野さん、喫煙所で長話（' + Math.max(0, G.awayT).toFixed(1) + '秒）', VW / 2, 200);
+  } else if (G.mode === 'fukuoka'){
+    ctx.font = '900 13px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,201,91,0.95)';
+    ctx.fillText('離陸しました', VW / 2, 196);
+    ctx.font = '700 10.5px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,246,234,0.7)';
+    ctx.fillText('「ちなみにさー、タワーがさー」', VW / 2, 214);
+  } else {
+    drawTakano(seated ? SEAT_X : G.x, seated ? DESK_TOP + 8 : FLOOR, seated, G.t * 8);
+  }
+
+  drawDesk();
+  for (var i = 0; i < G.guests.length; i++) drawGuest(G.guests[i]);
+  for (var k = 0; k < G.items.length; k++) drawItem(G.items[k]);
+  drawBubble();
+
+  for (var f = 0; f < G.fx.length; f++){
+    var e = G.fx[f], pr = e.t / e.life;
+    ctx.globalAlpha = 1 - pr;
+    ctx.font = '800 11px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = e.c;
+    ctx.fillText(e.text, e.x, e.y - pr * 22);
+    ctx.globalAlpha = 1;
+  }
+
+  if (G.mode === 'seated' && G.running){
+    var fm = focusMul();
+    ctx.font = '900 11px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = fm >= 1.7 ? 'rgba(255,201,91,0.95)' : (fm < 1 ? 'rgba(255,246,234,0.45)' : 'rgba(127,214,224,0.9)');
+    ctx.fillText('集中 x' + fm.toFixed(2), SEAT_X, DESK_TOP - 48);
+  }
+
+  if (G.aniki > 0){
+    ctx.font = '900 12px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,201,91,0.95)';
+    ctx.fillText('兄貴モード ' + G.aniki.toFixed(1) + 's', VW / 2, VH - 14);
+  }
+  ctx.restore();
+}
+
+/* ================= hud ================= */
+var hudL = document.getElementById('hudL'), hudR = document.getElementById('hudR');
+var fillWork = document.getElementById('fillWork'), fillSowa = document.getElementById('fillSowa'), fillVoice = document.getElementById('fillVoice');
+var statusEl = document.getElementById('status');
+function statusBar(){
+  var m = '', cls = '';
+  if (!G.running){ statusEl.classList.add('hide'); return; }
+  if (G.longTalk > 0){
+    m = (G.longTalkM ? '実さんの長話' : '長話') + '中　あと ' + G.longTalk.toFixed(1) + '秒' +
+      '<small>仕事が減っている / ソワソワ上昇 / 集中リセット済み</small>';
+  } else if (G.mode === 'talking'){
+    m = '捕まった　「何回目?」を答えろ<small>時間切れは不正解あつかい</small>';
+  } else if (G.mode === 'walking'){
+    m = '席を立った!　タップで呼び戻せ' +
+      (G.face > 0 ? '<small>右へ行くとエレベーター → 福岡行き</small>' : '<small>左は喫煙所。戻るまで仕事は止まる</small>');
+  } else if (G.mode === 'away'){
+    m = '喫煙所で長話中　戻り ' + Math.max(0, G.awayT).toFixed(1) + '秒<small>その間ずっと仕事は0</small>';
+  } else if (G.mode === 'fukuoka'){
+    m = '離陸<small>もう止められない</small>';
+  } else if (G.sowa > 80){
+    m = 'ソワソワが限界に近い<small>100で席を立つ</small>';
+  } else if (G.focus >= 15){
+    m = '集中しきってる　x2.4<small>この状態を切らすな</small>'; cls = 'calm';
+  } else { statusEl.classList.add('hide'); return; }
+  statusEl.className = cls;
+  statusEl.innerHTML = m;
+}
+
+function hud(){
+  if (G && G.cb){
+    cbBtn.style.transform = 'scale(' + (1 + G.cb.pulse * 0.12) + ')';
+  }
+  statusBar();
+  hudL.textContent = 'DAY ' + G.day + (G.diff.endless ? '' : ' / ' + G.days) + '　' + G.diff.label;
+  hudR.innerHTML = '定時まで ' + Math.max(0, G.time).toFixed(0) + 's<br>' +
+    '<span style="font-size:10px;opacity:.8">仕事 ' + G.work.toFixed(0) + '%</span>';
+  fillWork.style.width = G.work + '%';
+  fillSowa.style.width = G.sowa + '%';
+  fillVoice.style.width = G.voice + '%';
+}
+
+/* ================= loop ================= */
+function frame(ts){
+  var dt = lastT ? Math.min(0.05, (ts - lastT) / 1000) : 0;
+  lastT = ts;
+  if (G){
+    if (G.running) update(dt); else G.t += dt;
+    render(); hud();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ================= boot ================= */
+function startWithDiff(key){
+  G = newGame(key);
+  G.running = true;
+  startScreen.classList.add('hide');
+  endScreen.classList.add('hide');
+  dayScreen.classList.add('hide');
+  quizEl.classList.add('hide');
+  cbEl.classList.add('hide');
+  toastEl.style.opacity = '0';
+  resize();
+}
+document.getElementById('btnNormal').addEventListener('click', function(){ startWithDiff('normal'); });
+document.getElementById('btnHard').addEventListener('click', function(){ startWithDiff('hard'); });
+document.getElementById('btnOni').addEventListener('click', function(){ startWithDiff('oni'); });
+document.getElementById('btnJigoku').addEventListener('click', function(){ startWithDiff('jigoku'); });
+document.getElementById('btnEndless').addEventListener('click', function(){ startWithDiff('endless'); });
+document.getElementById('btnAgain').addEventListener('click', function(){ startWithDiff(G.diff.key); });
+document.getElementById('btnBackToStart').addEventListener('click', function(){
+  endScreen.classList.add('hide');
+  startScreen.classList.remove('hide');
+});
+
+G = newGame('normal');
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
