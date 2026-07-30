@@ -122,8 +122,21 @@
   #cbBar i{display:block; height:100%; width:0%; background:var(--gold);}
   #cbCount{color:var(--paper); font-size:11.5px; font-weight:800; opacity:0.85;}
 
+  #topicRow{
+    position:absolute; left:44px; right:11px; top:75px;
+    display:flex; gap:4px; flex-wrap:wrap; pointer-events:none;
+  }
+  .chip{
+    font-size:8.5px; font-weight:800; letter-spacing:0.01em;
+    padding:2px 6px; border-radius:999px;
+    background:rgba(255,255,255,0.1); color:rgba(255,246,234,0.55);
+    text-shadow:0 1px 2px rgba(0,0,0,0.5);
+    border:1px solid rgba(255,255,255,0.12);
+  }
+  .chip.got{background:rgba(255,201,91,0.85); color:#3a2a10; border-color:transparent;}
+
   #status{
-    position:absolute; left:11px; right:11px; top:80px;
+    position:absolute; left:11px; right:11px; top:95px;
     padding:6px 10px; border-radius:9px;
     background:rgba(255,107,91,0.92); color:#fff;
     font-size:11px; font-weight:800; letter-spacing:0.02em;
@@ -132,6 +145,21 @@
   }
   #status.calm{background:rgba(127,214,224,0.9); color:#10323a;}
   #status small{display:block; font-size:9.5px; font-weight:700; opacity:0.92; margin-top:1px;}
+
+  #noticeLayer{ position:absolute; inset:0; pointer-events:none; }
+  .notice{
+    position:absolute; z-index:5; max-width:210px;
+    padding:8px 11px; border-radius:12px 12px 12px 3px;
+    background:rgba(255,246,234,0.97); color:var(--ink);
+    box-shadow:0 8px 22px rgba(0,0,0,0.45);
+    pointer-events:auto; touch-action:none; cursor:grab;
+    transition:box-shadow 0.15s;
+  }
+  .notice.dragging{box-shadow:0 14px 30px rgba(0,0,0,0.55);}
+  .notice .src{font-size:9px; font-weight:900; color:var(--accent); letter-spacing:0.03em;}
+  .notice .msg{font-size:11.5px; font-weight:700; line-height:1.4; margin-top:1px;}
+  .notice .hint{font-size:8px; opacity:0.45; margin-top:2px; font-weight:700;}
+
   #toast{
     position:absolute; left:50%; top:48%; transform:translate(-50%,-50%);
     color:var(--paper); font-size:18px; font-weight:900; letter-spacing:0.05em;
@@ -158,6 +186,8 @@
     <div class="bar" id="barWork"><i id="fillWork"></i></div>
     <div class="bar" id="barSowa"><i id="fillSowa"></i></div>
     <div class="bar" id="barVoice"><i id="fillVoice"></i></div>
+    <div id="topicRow"></div>
+    <div id="noticeLayer"></div>
 
     <div id="quiz" class="hide">
       <div id="quizQ"></div>
@@ -184,9 +214,12 @@
       <p style="text-align:left">
         ・仕事は<b>邪魔されず座り続けた時間</b>で加速する（集中 x0.45 → x2.4）。中断されると<b>ゼロに戻る</b><br>
         ・<b>高野さんをタップ</b> → 声かけ。ただし<b>連打は逆効果</b>、落ち着いてる時に使っても効かない<br>
-        ・<b>社員をタップ</b> → 別件に流す。ただし<b>上司・取締役・社長は流せない</b>（触ると悪化）<br>
+        ・<b>社員をタップ</b> → 別件に流す。<b>問題児は2回タップ</b>必要、<b>マネージャー・取締役・社長は流せない</b>（取締役は特に怖い）<br>
         ・<b>実さんは止まらない</b>。強制トークだが正解すれば大きい<br>
-        ・飛んでくる物：<b>チラシは払う／図面は触るな（仕事+6）／缶コーヒーはソワソワが高い時だけ有効</b><br>
+        ・飛んでくる物：<b>チラシは払う／図面は触るな／缶コーヒーはソワソワ高い時だけ有効</b><br>
+        ・<b>電話・ご飯・ソリティア・一服</b>は座ったまま取ると時間が伸びる。ただし集中は少し削れる<br>
+        ・上に浮かぶ<b>吹き出し通知はスワイプで払う</b>。放置すると集中が切れる<br>
+        ・その日の<b>ネタ4つを全部聞ければ即クリア</b>（上部のチップで確認）<br>
         ・<b>空振りタップは声かけゲージを削る</b>。手当たり次第は損<br>
         ・3連続でさばくと<b>兄貴モード</b>
       </p>
@@ -251,22 +284,29 @@ var DESK_L = 208, DESK_R = 344, DESK_TOP = 250;
 var SEAT_X = 276;
 
 /* ================= data ================= */
-/* kind: normal = 流せる / boss = 流せない・立ってると減点 / minoru = 止まらない強制トーク */
+/* kind: normal = 流せる / kohai = 懐いてくる弟分(流しやすい) / trouble = 言うこと聞かない(2回タップ必要)
+   boss = 流せない・立ってると減点(execフラグ=取締役は殴打演出) / minoru = 止まらない強制トーク */
 var PEOPLE = [
-  {n:'営業',        c:'#4a6f8c', h:'#241d16', kind:'normal', prop:'bag',    w:14},
-  {n:'プログラマー', c:'#57608c', h:'#1e1a1e', kind:'normal', prop:'laptop', w:13},
-  {n:'エンジニア',   c:'#5f9a72', h:'#2b2320', kind:'normal', prop:'helmet', w:14},
-  {n:'総務',        c:'#b8749a', h:'#3a2418', kind:'normal', prop:'paper',  w:13},
-  {n:'経理',        c:'#8a7ab8', h:'#2b2030', kind:'normal', prop:'paper',  w:13},
-  {n:'新人',        c:'#6fa8a0', h:'#1e1a1e', kind:'normal', prop:'none',   w:15, small:true},
-  {n:'サブコンさん', c:'#c08a4a', h:'#2e2320', kind:'normal', prop:'helmet', w:12},
-  {n:'上司',        c:'#3f4a5c', h:'#242028', kind:'boss',   prop:'bag',    w:7},
-  {n:'取締役',      c:'#2f3646', h:'#3d3630', kind:'boss',   prop:'none',   w:4},
+  {n:'営業',        c:'#4a6f8c', h:'#241d16', kind:'normal', prop:'bag',    w:13},
+  {n:'プログラマー', c:'#57608c', h:'#1e1a1e', kind:'normal', prop:'laptop', w:12},
+  {n:'エンジニア',   c:'#5f9a72', h:'#2b2320', kind:'normal', prop:'helmet', w:13},
+  {n:'総務',        c:'#b8749a', h:'#3a2418', kind:'normal', prop:'paper',  w:12},
+  {n:'経理',        c:'#8a7ab8', h:'#2b2030', kind:'normal', prop:'paper',  w:12},
+  {n:'新人',        c:'#6fa8a0', h:'#1e1a1e', kind:'normal', prop:'none',   w:13, small:true},
+  {n:'サブコンさん', c:'#c08a4a', h:'#2e2320', kind:'normal', prop:'helmet', w:11},
+  {n:'同僚',        c:'#5b9ab0', h:'#241d16', kind:'normal', prop:'bag',    w:12},
+  {n:'弟分',        c:'#e0a458', h:'#2b1f16', kind:'kohai',  prop:'none',   w:11, small:true},
+  {n:'問題児',      c:'#b8543f', h:'#1a1a1a', kind:'trouble',prop:'none',   w:9},
+  {n:'マネージャー', c:'#3f4a5c', h:'#242028', kind:'boss',   prop:'bag',    w:7},
+  {n:'取締役',      c:'#2f3646', h:'#3d3630', kind:'boss',   prop:'none',   w:5, exec:true},
   {n:'社長',        c:'#1f2430', h:'#d8d4cc', kind:'boss',   prop:'none',   w:3},
   {n:'実さん',      c:'#6f5bd6', h:'#2b2030', kind:'minoru', prop:'none',   w:6}
 ];
 var WSUM = 0;
 for (var wi = 0; wi < PEOPLE.length; wi++) WSUM += PEOPLE[wi].w;
+
+var KOHAI_LINES = ['兄貴、休憩しましょうよ', '兄貴ー、それ後で!', '寂しいんで話しましょうよ'];
+var TROUBLE_LINES = ['えー、聞いてないっすよ', '知らないっす', 'まあまあ、後で後で'];
 
 var TOPICS = [
   '福岡タワーがさー',
@@ -284,6 +324,20 @@ var TOPICS = [
   '天神でブレーカー飛んだ時がさー',
   '博多のモツ鍋がさー'
 ];
+/* チェックリスト表示用の短縮ラベル(TOPICSと同じ並び) */
+var TOPIC_TAGS = ['福岡タワー','ヨルノヨ','品川','芝浦','保守','シーケンス','灯具','フェード','実さん','HC','銀座','ドライバー','天神','モツ鍋'];
+/* その日集めるネタは computeDayGoal(day) で動的に決める */
+
+/* 通知吹き出しの発信元。実さん以外は個人名を出さず役割名で統一 */
+var NOTICE_SRC = [
+  {n:'マネージャー', lines:['進捗どう?', 'ちょっと電話いい?', '例の件、大丈夫?']},
+  {n:'実さん',       lines:null /* PREFIX+TOPICSを合成 */},
+  {n:'弟分',         lines:['兄貴、メシ行きましょ', '既読無視っすか', '寂しいんで電話ください']},
+  {n:'同僚',         lines:['さっきの資料の件で', 'ちょっといいですか', '確認したいことが']},
+  {n:'問題児',       lines:['また現場出てないんすけど', '知らないっすよそんなの', 'すいません遅れます']},
+  {n:'ギネス',       lines:['納期の件で確認です', 'お世話になっております']},
+  {n:'協力会社',     lines:['見積もりの件、まだですか', 'ご確認お願いします']}
+];
 /* 話し始めの口癖。ネタ本体とは別に毎回ランダムで付く */
 var PREFIX = ['ちなみに', 'ちなみにさ', 'あとさー', 'そうそう', 'あ、そういえば', 'ちなみにこれ'];
 
@@ -293,6 +347,15 @@ var CUTLINE = ['あ、話したっけ。ごめんごめん', 'ちなみにその
 var SATLINE = ['そうそう、それでさー! 続きは飲みで', 'でしょ? ちなみに続きがあってさー'];
 var LONGLINE_OLD = ['いや、ちなみにその後がさー', 'いやいや、そこからがさー'];
 var LONGLINE_NEW = ['えっ、まだ言ってないっけ? でさー', 'あれ、してない? じゃあさー'];
+
+/* 息抜きアイテム: 座ったまま取ると時間が伸びる代わりに集中が削れる */
+var SNACK_FX = {
+  phone:     {time:3, sowa:8,   focusMul:0.5, label:'電話'},
+  food:      {time:5, sowa:4,   focusMul:0.6, label:'ご飯'},
+  solitaire: {time:3, sowa:10,  focusMul:0.3, label:'ソリティア'},
+  tobacco:   {time:4, sowa:-10, focusMul:0.5, label:'一服'}
+};
+var SNACK_KINDS = ['phone','food','solitaire','tobacco'];
 
 var BOSS_FLAVOR = [
   '「高野くん、今日は珍しく座ってたな」',
@@ -357,9 +420,10 @@ function newGame(key){
     mode:'seated',   /* seated | walking | away | fukuoka | talking | callback | paused */
     x:SEAT_X, face:1,
     awayT:0, bubble:null, bubbleT:0,
-    heard:{}, guests:[], items:[], fx:[], planes:[],
-    spawnT:1.8, itemT:3.2, longTalk:0, quiz:null, cb:null, endDelay:0,
-    focus:0, lastCalm:-9, calmSpam:0,
+    heard:{}, guests:[], items:[], fx:[], planes:[], notices:[],
+    spawnT:1.8, itemT:3.2, noticeT:7, longTalk:0, quiz:null, cb:null, endDelay:0,
+    focus:0, lastCalm:-9, calmSpam:0, longTalkGuest:null,
+    goalIdx: computeDayGoal(1), collected:{},
     running:false,
     shake:0, t:0,
     ach:{flyerHits:0, fukuoka:0, bossSeen:0, quizWrong:0, quizTotal:0, aniki:0, minoruWin:0, talks:0},
@@ -375,6 +439,23 @@ function pop(x, y, text, color){ G.fx.push({x:x, y:y, t:0, life:0.95, text:text,
 function rnd(a, b){ return a + Math.random() * (b - a); }
 function pick(a){ return a[(Math.random() * a.length) | 0]; }
 function say(text){ G.bubble = text; G.bubbleT = 2.2; }
+
+/* その日集めるネタを4つ選ぶ(日替わりでローテーション) */
+function computeDayGoal(day){
+  var start = ((day - 1) * 4) % TOPICS.length, idx = [];
+  for (var k = 0; k < 4; k++) idx.push((start + k) % TOPICS.length);
+  return idx;
+}
+function renderTopicChips(){
+  var el = document.getElementById('topicRow');
+  if (!el || !G) return;
+  var html = '';
+  for (var i = 0; i < G.goalIdx.length; i++){
+    var ti = G.goalIdx[i], got = !!G.collected[ti];
+    html += '<span class="chip' + (got ? ' got' : '') + '">' + TOPIC_TAGS[ti] + '</span>';
+  }
+  el.innerHTML = html;
+}
 
 /* 集中ストリークの倍率。座り続けるほど伸びる */
 function focusMul(){
@@ -405,18 +486,20 @@ function spawnGuest(){
 function spawnItem(){
   var d = G.diff;
   var r = Math.random();
+  var flyerP = d.flyerBase + G.day * d.flyerDayMul;
   var kind;
-  if (r < (d.flyerBase + G.day * d.flyerDayMul)) kind = 'flyer';
-  else if (r < (d.flyerBase + G.day * d.flyerDayMul) + 0.3) kind = 'plan';
+  if (r < flyerP) kind = 'flyer';
+  else if (r < flyerP + 0.24) kind = 'plan';
+  else if (r < flyerP + 0.24 + 0.22) kind = pick(SNACK_KINDS);
   else kind = 'coffee';
-  var flyer = (kind !== 'coffee');
+  var falls = (kind === 'flyer' || kind === 'plan');
   var fromLeft = Math.random() < 0.5;
   G.items.push({
     kind: kind,
     x: fromLeft ? -20 : VW + 20,
-    y: flyer ? rnd(148, 198) : FLOOR - 12,
-    vx: (fromLeft ? 1 : -1) * (flyer ? rnd(72, 100) : rnd(46, 64)),
-    vy: flyer ? rnd(12, 20) : 0,
+    y: falls ? rnd(148, 198) : FLOOR - 12,
+    vx: (fromLeft ? 1 : -1) * (falls ? rnd(72, 100) : rnd(46, 64)),
+    vy: falls ? rnd(12, 20) : 0,
     sp: Math.random() * 6
   });
 }
@@ -429,9 +512,19 @@ var quizFill = document.getElementById('quizTimerFill');
 function startTalk(guest){
   var known = [], i;
   for (var k in G.heard){ if (G.heard[k] > 0) known.push(+k); }
+
+  /* まだ回収してないその日のネタは優先的に出す(運任せじゃなく狙って集められるように) */
+  var pendingGoal = [];
+  for (i = 0; i < G.goalIdx.length; i++){
+    if (!G.collected[G.goalIdx[i]]) pendingGoal.push(G.goalIdx[i]);
+  }
+
   var ti;
-  if (known.length && Math.random() < 0.58) ti = pick(known);
-  else {
+  if (pendingGoal.length && Math.random() < 0.5){
+    ti = pick(pendingGoal);
+  } else if (known.length && Math.random() < 0.58){
+    ti = pick(known);
+  } else {
     var fresh = [];
     for (i = 0; i < TOPICS.length; i++){ if (!G.heard[i]) fresh.push(i); }
     ti = fresh.length ? pick(fresh) : pick(known.length ? known : [0]);
@@ -457,27 +550,46 @@ function resolveQuiz(ans){
   G.ach.quizTotal++;
   quizEl.classList.add('hide');
   G.quiz = null;
-  q.g.st = 'leave';
-  q.g.dir = (q.g.x < SEAT_X) ? -1 : 1;
-  q.g.spd *= 1.4;
 
   if (correct){
+    q.g.st = 'leave';
+    q.g.dir = (q.g.x < SEAT_X) ? -1 : 1;
+    q.g.spd *= 1.4;
+
     G.combo++;
     var gain = q.m ? 11 : 4;
     G.work = Math.min(100, G.work + gain);
     G.sowa = Math.max(0, G.sowa - (q.m ? 34 : 22));
     G.mode = 'seated';
     if (q.m) G.ach.minoruWin++;
+
+    if (G.goalIdx.indexOf(ti) !== -1 && !G.collected[ti]){
+      G.collected[ti] = true;
+      renderTopicChips();
+      var allGot = true;
+      for (var gi = 0; gi < G.goalIdx.length; gi++){ if (!G.collected[G.goalIdx[gi]]) allGot = false; }
+      if (allGot){
+        G.work = 100;
+        say('よし、今日のネタは出し切った');
+        toast('ネタ全回収!<br><span style="font-size:12px;opacity:.85">定時前に片付いた</span>', 1500);
+        return;
+      }
+    }
+
     say(q.answer === 'old' ? pick(CUTLINE) : pick(SATLINE));
     toast((q.m ? '実さんをさばいた!<br>' : 'うまくさばいた<br>') +
       '<span style="font-size:12px;opacity:.8">仕事 +' + gain + '</span>', 850);
     if (G.combo >= 3) triggerAniki();
   } else {
+    /* ゲストはすぐに立ち去らせず、長話が終わるまでその場に留める(見た目でも損してるのが分かるように) */
+    q.g.st = 'talk';
+    G.longTalkGuest = q.g;
     G.combo = 0;
     G.ach.quizWrong++;
     G.mode = 'talking';
     G.longTalk = q.m ? 5.2 : 4.0;
     G.longTalkM = q.m;
+    G.shake = 1;
     say(q.answer === 'old' ? pick(LONGLINE_OLD) : pick(LONGLINE_NEW));
     toast((q.m ? '実さんの長話に捕まった' : '長話に突入') +
       '<br><span style="font-size:11.5px;opacity:.85">' + G.longTalk.toFixed(1) +
@@ -491,6 +603,74 @@ document.getElementById('qNew').addEventListener('click', function(){ resolveQui
 function triggerAniki(){
   G.aniki = 12; G.combo = 0; G.ach.aniki++;
   toast('スイッチ入った<br><span style="font-size:13px">兄貴モード!</span>', 1200);
+}
+
+/* ================= notice bubbles (スワイプで除ける) ================= */
+var noticeLayer = document.getElementById('noticeLayer');
+function clearNotices(){
+  if (noticeLayer) noticeLayer.innerHTML = '';
+  if (G) G.notices = [];
+}
+function dismissNotice(nz, success){
+  var idx = G.notices.indexOf(nz);
+  if (idx === -1) return;
+  G.notices.splice(idx, 1);
+  if (nz.el && nz.el.parentNode) nz.el.parentNode.removeChild(nz.el);
+  if (success){
+    G.combo++;
+    pop(SEAT_X, 190, nz.source + 'を華麗にスルー', '#7fd6e0');
+    if (G.combo >= 3) triggerAniki();
+  } else {
+    G.sowa = Math.min(100, G.sowa + 10);
+    breakFocus();
+    say('あ、既読つけなきゃ…');
+    toast(nz.source + 'を放置した<br><span style="font-size:11px;opacity:.85">気になって集中が切れた</span>', 1000);
+  }
+}
+function spawnNotice(){
+  if (G.notices.length >= 2) return;
+  var src = pick(NOTICE_SRC);
+  var msg = src.lines ? pick(src.lines) : (pick(PREFIX) + '、' + TOPICS[(Math.random() * TOPICS.length) | 0]);
+  var el = document.createElement('div');
+  el.className = 'notice';
+  el.style.left = rnd(6, 58) + '%';
+  el.style.top = rnd(34, 48) + '%';
+  el.innerHTML = '<div class="src">' + src.n + '</div><div class="msg">' + msg + '</div><div class="hint">スワイプして消す</div>';
+  noticeLayer.appendChild(el);
+
+  var nz = {source: src.n, life: 6.5, max: 6.5, el: el};
+  G.notices.push(nz);
+
+  var dragging = false, sx = 0, sy = 0, curX = 0, curY = 0;
+  function onDown(e){
+    dragging = true;
+    el.classList.add('dragging');
+    el.style.transition = '';
+    sx = e.clientX; sy = e.clientY; curX = 0; curY = 0;
+    if (e.pointerId != null && el.setPointerCapture){ try { el.setPointerCapture(e.pointerId); } catch(err){} }
+  }
+  function onMove(e){
+    if (!dragging) return;
+    curX = e.clientX - sx; curY = e.clientY - sy;
+    el.style.transform = 'translate(' + curX + 'px,' + curY + 'px) rotate(' + (curX * 0.05) + 'deg)';
+    el.style.opacity = Math.max(0.15, 1 - Math.abs(curX) / 220);
+  }
+  function onUp(){
+    if (!dragging) return;
+    dragging = false;
+    el.classList.remove('dragging');
+    var dist = Math.sqrt(curX * curX + curY * curY);
+    if (dist > 70){
+      dismissNotice(nz, true);
+    } else {
+      el.style.transition = 'transform 0.2s, opacity 0.2s';
+      el.style.transform = ''; el.style.opacity = '1';
+    }
+  }
+  el.addEventListener('pointerdown', onDown);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
 }
 
 /* ================= callback minigame (福岡阻止) ================= */
@@ -573,6 +753,16 @@ function hit(px, py){
         G.work = Math.max(0, G.work - 5);
         breakFocus();
         pop(it.x, it.y, '図面を叩き落とした!', '#ff6b5b');
+      } else if (SNACK_FX[it.kind]){
+        var sfx = SNACK_FX[it.kind];
+        if (G.mode === 'seated'){
+          G.time += sfx.time;
+          G.sowa = Math.max(0, Math.min(100, G.sowa + sfx.sowa));
+          G.focus = Math.max(0, G.focus * sfx.focusMul);
+          pop(it.x, it.y, sfx.label + ' 時間+' + sfx.time + 's', '#ffc95b');
+        } else {
+          pop(it.x, it.y, '今は意味ない', 'rgba(255,246,234,0.5)');
+        }
       } else {
         pop(it.x, it.y, 'チラシ回収', '#7fd6e0');
       }
@@ -587,12 +777,36 @@ function hit(px, py){
     if (Math.abs(px - g.x) < 30 && py > FLOOR - 78 && py < FLOOR + 14){
       var p = PEOPLE[g.p];
       if (g.kind === 'boss'){
-        G.sowa = Math.min(100, G.sowa + 12);
-        G.voice = Math.max(0, G.voice - 22);
-        pop(g.x, FLOOR - 82, p.n + 'を追い払おうとした…', '#ff6b5b');
+        if (p.exec){
+          G.sowa = Math.min(100, G.sowa + 18);
+          G.voice = Math.max(0, G.voice - 30);
+          G.shake = 1.4;
+          breakFocus();
+          pop(g.x, FLOOR - 86, 'ガツン!!', '#ff2d2d');
+          toast(p.n + 'に本気で怒られた<br><span style="font-size:11px;opacity:.85">集中リセット</span>', 1000);
+        } else {
+          G.sowa = Math.min(100, G.sowa + 12);
+          G.voice = Math.max(0, G.voice - 22);
+          pop(g.x, FLOOR - 82, p.n + 'を追い払おうとした…', '#ff6b5b');
+        }
       } else if (g.kind === 'minoru'){
         G.voice = Math.max(0, G.voice - 12);
         pop(g.x, FLOOR - 82, '実さんは止まらない', '#ff6b5b');
+      } else if (g.kind === 'trouble'){
+        g.tapsGot = (g.tapsGot || 0) + 1;
+        if (g.tapsGot < 2){
+          pop(g.x, FLOOR - 82, pick(TROUBLE_LINES), '#ffb15b');
+        } else {
+          g.st = 'leave'; g.dir = -g.dir; g.spd *= 1.7;
+          pop(g.x, FLOOR - 82, 'しぶしぶ退散', '#7fd6e0');
+          G.combo++;
+          if (G.combo >= 3) triggerAniki();
+        }
+      } else if (g.kind === 'kohai'){
+        g.st = 'leave'; g.dir = -g.dir; g.spd *= 2.0;
+        pop(g.x, FLOOR - 82, pick(KOHAI_LINES), '#7fd6e0');
+        G.combo++;
+        if (G.combo >= 3) triggerAniki();
       } else {
         g.st = 'leave'; g.dir = -g.dir; g.spd *= 1.7;
         pop(g.x, FLOOR - 82, '別件に流した', '#7fd6e0');
@@ -690,7 +904,14 @@ function update(dt){
     G.sowa = Math.min(100, G.sowa + dt * 9);
     /* 長話は時間が溶けるだけでなく、手が止まって書類が散らかる */
     G.work = Math.max(0, G.work - dt * (G.longTalkM ? 2.2 : 1.3));
-    if (G.longTalk <= 0){ G.mode = 'seated'; G.longTalkM = false; say('で、何の話だっけ'); }
+    if (G.longTalk <= 0){
+      G.mode = 'seated'; G.longTalkM = false; say('で、何の話だっけ');
+      if (G.longTalkGuest){
+        var lg = G.longTalkGuest;
+        lg.st = 'leave'; lg.dir = (lg.x < SEAT_X) ? -1 : 1; lg.spd *= 1.4;
+        G.longTalkGuest = null;
+      }
+    }
   }
 
   G.voice = Math.min(100, G.voice + dt * G.diff.voiceRecharge);
@@ -808,6 +1029,18 @@ function update(dt){
     if (it.x < -50 || it.x > VW + 50 || it.y > VH + 40) G.items.splice(k, 1);
   }
 
+  /* 通知吹き出し */
+  G.noticeT -= dt;
+  if (G.noticeT <= 0 && G.notices.length < 2){
+    spawnNotice();
+    G.noticeT = Math.max(5, rnd(9, 15) - G.day * 0.4);
+  }
+  for (var nI = G.notices.length - 1; nI >= 0; nI--){
+    var nz = G.notices[nI];
+    nz.life -= dt;
+    if (nz.life <= 0) dismissNotice(nz, false);
+  }
+
   for (var f = G.fx.length - 1; f >= 0; f--){
     G.fx[f].t += dt;
     if (G.fx[f].t > G.fx[f].life) G.fx.splice(f, 1);
@@ -825,6 +1058,7 @@ var startScreen = document.getElementById('startScreen');
 function endDay(cleared){
   if (G.quiz){ quizEl.classList.add('hide'); G.quiz = null; }
   if (G.cb){ cbEl.classList.add('hide'); G.cb = null; }
+  clearNotices();
   G.running = false;
   toastEl.style.opacity = '0';
   if (cleared && (G.diff.endless || G.day < G.days)) showDay();
@@ -835,7 +1069,7 @@ function showDay(){
   document.getElementById('dayTag').textContent = 'DAY ' + G.day + ' 完了　' + G.diff.label;
   document.getElementById('dayTitle').textContent = '定時に上がれた';
   document.getElementById('dayFlavor').innerHTML = pick(BOSS_FLAVOR) +
-    '<br><span style="opacity:.6; font-size:11px">— ' + (Math.random() < 0.5 ? '上司' : '取締役') + 'の独り言</span>';
+    '<br><span style="opacity:.6; font-size:11px">— ' + (Math.random() < 0.5 ? 'マネージャー' : '取締役') + 'の独り言</span>';
   var a = G.ach;
   document.getElementById('dayStats').innerHTML =
     '<div><span>' + a.talks + '</span> 回 捕まった</div>' +
@@ -851,10 +1085,13 @@ document.getElementById('btnNextDay').addEventListener('click', function(){
   G.day++;
   G.time = Math.max(18, d.time - (G.day - 1) * d.timeStep);
   G.work = 0; G.sowa = 18; G.voice = 100; G.combo = 0; G.aniki = 0;
-  G.guests = []; G.items = []; G.fx = []; G.planes = [];
+  G.guests = []; G.items = []; G.fx = []; G.planes = []; G.longTalkGuest = null;
   G.mode = 'seated'; G.x = SEAT_X; G.longTalk = 0;
   G.spawnT = Math.max(0.8, 1.7 - G.day * 0.1);
   G.itemT = Math.max(1.2, 2.9 - G.day * 0.13);
+  G.noticeT = Math.max(4, 7 - G.day * 0.2);
+  G.goalIdx = computeDayGoal(G.day); G.collected = {};
+  renderTopicChips();
   G.running = true;
 });
 
@@ -1136,6 +1373,42 @@ function drawItem(it){
     ctx.font = '700 8px "Hiragino Sans", sans-serif';
     ctx.fillStyle = 'rgba(127,214,224,0.95)';
     ctx.fillText('図面 触るな!', it.x, it.y - 17);
+  } else if (it.kind === 'phone'){
+    ctx.rotate(Math.sin(it.sp) * 0.2);
+    ctx.fillStyle = '#2a2733'; ctx.fillRect(-8, -14, 16, 26);
+    ctx.fillStyle = '#7fd6e0'; ctx.fillRect(-6, -11, 12, 18);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(127,214,224,0.9)';
+    ctx.fillText('電話', it.x, it.y - 20);
+  } else if (it.kind === 'food'){
+    ctx.rotate(Math.sin(it.sp) * 0.15);
+    ctx.fillStyle = '#e8dcc0'; ctx.fillRect(-14, -8, 28, 16);
+    ctx.fillStyle = '#c9542f'; ctx.fillRect(-14, -8, 10, 16);
+    ctx.fillStyle = '#5f9a72'; ctx.fillRect(2, -8, 6, 16);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,201,91,0.9)';
+    ctx.fillText('ご飯', it.x, it.y - 18);
+  } else if (it.kind === 'solitaire'){
+    ctx.rotate(Math.sin(it.sp) * 0.3);
+    ctx.fillStyle = '#fff6ea'; ctx.fillRect(-11, -13, 16, 22);
+    ctx.fillStyle = '#e6dccb'; ctx.fillRect(-7, -9, 16, 22);
+    ctx.fillStyle = '#ff6b5b'; ctx.fillRect(-3, -4, 5, 5);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,246,234,0.75)';
+    ctx.fillText('ソリティア', it.x, it.y - 20);
+  } else if (it.kind === 'tobacco'){
+    ctx.rotate(Math.sin(it.sp) * 0.25);
+    ctx.fillStyle = '#fff6ea'; ctx.fillRect(-11, -2, 20, 4);
+    ctx.fillStyle = '#ff8a3d'; ctx.fillRect(8, -2, 4, 4);
+    ctx.fillStyle = 'rgba(200,200,200,0.5)';
+    ctx.fillRect(11, -8, 2, 5);
+    ctx.restore();
+    ctx.font = '700 8px "Hiragino Sans", sans-serif';
+    ctx.fillStyle = 'rgba(255,138,61,0.9)';
+    ctx.fillText('一服', it.x, it.y - 16);
   } else {
     ctx.rotate(Math.sin(it.sp) * 0.5);
     ctx.fillStyle = '#ffe9a8'; ctx.fillRect(-13, -9, 26, 18);
@@ -1275,6 +1548,7 @@ function frame(ts){
 
 /* ================= boot ================= */
 function startWithDiff(key){
+  clearNotices();
   G = newGame(key);
   G.running = true;
   startScreen.classList.add('hide');
@@ -1283,6 +1557,7 @@ function startWithDiff(key){
   quizEl.classList.add('hide');
   cbEl.classList.add('hide');
   toastEl.style.opacity = '0';
+  renderTopicChips();
   resize();
 }
 document.getElementById('btnNormal').addEventListener('click', function(){ startWithDiff('normal'); });
@@ -1298,6 +1573,7 @@ document.getElementById('btnBackToStart').addEventListener('click', function(){
 
 G = newGame('normal');
 resize();
+renderTopicChips();
 requestAnimationFrame(frame);
 })();
 </script>
